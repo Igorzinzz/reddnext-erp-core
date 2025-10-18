@@ -5,6 +5,22 @@ include_once __DIR__ . '/auth.php';
 $config = include __DIR__ . '/config.php';
 $current = $_SERVER['REQUEST_URI'];
 
+// 🔹 Detecta automaticamente o arquivo versao.txt (na raiz do ERP)
+$versaoFile = __DIR__ . '/../versao.txt';
+if (!file_exists($versaoFile)) {
+    // fallback: caso o arquivo esteja na mesma pasta
+    $versaoFile = __DIR__ . '/versao.txt';
+}
+
+// 🔹 Lê a versão e data da última modificação
+$versaoSistema = file_exists($versaoFile)
+    ? trim(file_get_contents($versaoFile))
+    : 'v0.0.0';
+
+$dataVersao = file_exists($versaoFile)
+    ? date('d/m/Y H:i', filemtime($versaoFile))
+    : '-';
+
 // Funções de layout
 function startContent() { echo '<main class="content px-4 py-3">'; }
 function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
@@ -35,7 +51,6 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
         min-height: 100vh;
         transition: all 0.3s ease;
     }
-
     #sidebar a {
         color: #333 !important;
         display: flex;
@@ -47,42 +62,35 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
         text-decoration: none !important;
         transition: all 0.2s ease;
     }
-
     #sidebar a:hover {
         background-color: #dc3545;
         color: #fff !important;
         padding-left: 20px;
     }
-
     #sidebar a.active {
         background-color: #dc3545;
         color: #fff !important;
     }
-
     #sidebar i {
         width: 22px;
         text-align: center;
         margin-right: 8px;
         font-size: 1rem;
     }
-
     .submenu a {
         font-size: 0.95rem;
         padding-left: 35px;
     }
-
     .toggle-arrow {
         margin-left: auto;
         cursor: pointer;
         color: #999;
         transition: transform 0.2s ease;
     }
-
     .toggle-arrow.rotate {
         transform: rotate(180deg);
         color: #dc3545;
     }
-
     header {
         background-color: #ffffff !important;
         border-bottom: 1px solid #e0e0e0;
@@ -90,22 +98,18 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
         top: 0;
         z-index: 1000;
     }
-
     #menu-toggle {
         border-color: #ccc;
         color: #333;
     }
-
     #menu-toggle:hover {
         border-color: #dc3545;
         color: #dc3545;
     }
-
     #page-content-wrapper {
         flex-grow: 1;
         background-color: #f5f6fa;
     }
-
     footer {
         background-color: #fff;
         text-align: center;
@@ -114,8 +118,6 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
         padding: 10px;
         border-top: 1px solid #eee;
     }
-
-    /* Tema coerente Select2 */
     .select2-container--bootstrap4 .select2-selection {
         border: 1px solid #ced4da !important;
         border-radius: 0.375rem !important;
@@ -123,17 +125,13 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
         height: auto !important;
         min-height: 38px;
     }
-
     .select2-container--bootstrap4 .select2-selection__arrow {
         top: 6px !important;
         right: 10px !important;
     }
-
     .select2-container--bootstrap4 .select2-selection__rendered {
         padding-left: 0 !important;
     }
-
-    /* Botão PDV moderno */
     .btn-pdv {
         background: linear-gradient(90deg, #dc3545 0%, #c82333 100%);
         color: #fff !important;
@@ -141,7 +139,6 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
         box-shadow: 0 2px 6px rgba(220, 53, 69, 0.4);
         transition: all 0.25s ease;
     }
-
     .btn-pdv:hover {
         background: linear-gradient(90deg, #c82333 0%, #a71d2a 100%);
         transform: translateY(-1px);
@@ -161,7 +158,10 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
     <nav id="sidebar">
         <div class="sidebar-header text-center py-4 border-bottom">
             <h4 class="fw-bold text-danger mb-0">Reddnext ERP</h4>
-            <small class="text-muted">v<?= $config['versao'] ?></small>
+            <small class="text-muted d-block">
+                <?= htmlspecialchars($versaoSistema) ?><br>
+                <span style="font-size:11px;">Atualizado em <?= htmlspecialchars($dataVersao) ?></span>
+            </small>
         </div>
 
         <ul class="list-unstyled px-3 mt-3">
@@ -266,7 +266,6 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
 
                 <span class="fw-semibold text-muted"><?= $config['app_name'] ?></span>
 
-                <!-- Botão PDV direto no topo -->
                 <a href="<?= $config['base_url'] ?>pdv/" target="_blank" class="btn btn-sm btn-pdv ms-2">
                     <i class="bi bi-shop me-1"></i> Abrir PDV
                 </a>
