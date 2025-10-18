@@ -1,0 +1,15 @@
+.pdv-thumb {
+  background: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid #eee;
+}
+
+.hover-shadow-sm {
+  transition: box-shadow 0.2s ease;
+}
+
+.hover-shadow-sm:hover {
+  box-shadow: 0 0.35rem 1rem rgba(0, 0, 0, 0.1);
+}

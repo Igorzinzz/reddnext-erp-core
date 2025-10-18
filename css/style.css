@@ -1,0 +1,36 @@
+body {
+    font-family: 'Poppins', Arial, sans-serif;
+    background-color: #f5f6fa;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+#wrapper {
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+.card {
+    border-radius: 0.75rem;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+footer {
+    background-color: #fff;
+    text-align: center;
+    font-size: 0.85rem;
+    color: #777;
+    padding: 10px;
+    border-top: 1px solid #eee;
+}
+
+@media (max-width: 768px) {
+    #sidebar {
+        margin-left: -250px;
+    }
+    #sidebar.active {
+        margin-left: 0;
+    }
+}
