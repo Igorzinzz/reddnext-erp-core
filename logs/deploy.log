@@ -30,3 +30,99 @@
 [2025-10-19 17:29:03] ✅ Atualização concluída com sucesso para main
 [2025-10-19 17:29:18] ⚠️ API do GitHub indisponível — usando branch main como fallback.
 [2025-10-19 17:29:18] ✅ Nenhuma atualização necessária. Versão atual: main
+[2025-10-19 17:35:25] 📦 Última tag detectada: v1.0.5 (local: main)
+[2025-10-19 17:35:26] ⬇️ ZIP baixado com sucesso (205835 bytes).
+[2025-10-19 17:35:26] ✅ Deploy concluído com sucesso para v1.0.5
+[2025-10-19 17:35:40] ⚠️ API do GitHub indisponível — usando branch main como fallback.
+[2025-10-19 17:35:40] 📦 Nova versão detectada: main (Atual: v1.0.5)
+[2025-10-19 17:35:41] ✅ Atualização concluída com sucesso para main
+[2025-10-19 17:40:22] 📦 Última tag detectada: v1.0.5 (local: v1.0.4)
+[2025-10-19 17:40:22] ⬇️ ZIP baixado com sucesso (205835 bytes).
+[2025-10-19 17:40:22] ✅ Deploy concluído com sucesso para v1.0.5
+[2025-10-19 17:48:04] ✅ Nenhuma atualização necessária. Versão atual: v1.0.5
+[2025-10-19 17:48:15] ✅ Nenhuma atualização necessária. Versão atual: v1.0.5
+[2025-10-19 17:48:38] 📦 Última tag detectada: v1.0.5 (local: v1.0.5)
+[2025-10-19 17:48:38] ⬇️ ZIP baixado com sucesso (205835 bytes).
+[2025-10-19 17:48:38] ✅ Deploy concluído com sucesso para v1.0.5
+[2025-10-19 17:52:37] ⚠️ API do GitHub indisponível — usando branch main como fallback.
+[2025-10-19 17:52:37] 📦 Nova versão detectada: main (Atual: v1.0.5)
+[2025-10-19 17:52:37] ✅ Atualização concluída com sucesso para main
+[2025-10-19 17:53:17] 📦 Última tag detectada: v1.0.5 (local: main)
+[2025-10-19 17:53:17] ⬇️ ZIP baixado com sucesso (205835 bytes).
+[2025-10-19 17:53:17] ✅ Deploy concluído com sucesso para v1.0.5
+[2025-10-19 17:53:23] ✅ Nenhuma atualização necessária. Versão atual: v1.0.5
+[2025-10-19 17:53:36] 📦 Última tag detectada: v1.0.5 (local: v1.0.5)
+[2025-10-19 17:53:37] ⬇️ ZIP baixado com sucesso (205835 bytes).
+[2025-10-19 17:53:37] ✅ Deploy concluído com sucesso para v1.0.5
+[2025-10-19 17:53:44] ✅ Nenhuma atualização necessária. Versão atual: v1.0.5
+[2025-10-19 17:53:46] 📦 Última tag detectada: v1.0.5 (local: v1.0.5)
+[2025-10-19 17:53:46] ⬇️ ZIP baixado com sucesso (205835 bytes).
+[2025-10-19 17:53:46] 📁 Pasta raiz detectada: reddnext-erp-core-1.0.5
+[2025-10-19 17:53:46] ⏭️ Ignorado: versao.txt
+[2025-10-19 17:53:46] ✅ Copiado: core/conexao.php
+[2025-10-19 17:53:46] ✅ Copiado: core/layout.php
+[2025-10-19 17:53:46] ✅ Copiado: core/auth.php
+[2025-10-19 17:53:46] ✅ Copiado: core/sidebar.php
+[2025-10-19 17:53:46] ✅ Copiado: core/version.php
+[2025-10-19 17:53:46] ✅ Copiado: core/funcoes.php
+[2025-10-19 17:53:46] ✅ Copiado: core/header.php
+[2025-10-19 17:53:46] ✅ Copiado: core/autoload.php
+[2025-10-19 17:53:46] ✅ Copiado: core/init.php
+[2025-10-19 17:53:46] ✅ Copiado: core/footer.php
+[2025-10-19 17:53:46] ⏭️ Ignorado: core/config.php
+[2025-10-19 17:53:46] ✅ Copiado: core/logout.php
+[2025-10-19 17:53:46] ✅ Copiado: index.php
+[2025-10-19 17:53:46] ✅ Copiado: js/script.js
+[2025-10-19 17:53:46] ✅ Copiado: login.php
+[2025-10-19 17:53:46] ⏭️ Ignorado: logs
+[2025-10-19 17:53:46] ⏭️ Ignorado: logs/deploy.log
+[2025-10-19 17:53:46] ⏭️ Ignorado: deploy.php
+[2025-10-19 17:53:46] ✅ Copiado: css/style.css
+[2025-10-19 17:53:46] ✅ Copiado: modulos/configuracoes/index.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/configuracoes/salvar.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/configuracoes/logo/logo_1760051368.png
+[2025-10-19 17:53:46] ✅ Copiado: modulos/vendas/excluir.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/vendas/index.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/vendas/estoque/buscar.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/vendas/estoque/excluir.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/vendas/estoque/index.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/vendas/estoque/editar.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/vendas/estoque/salvar.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/vendas/clientes/buscar.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/vendas/clientes/excluir.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/vendas/clientes/index.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/vendas/clientes/editar.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/vendas/clientes/salvar.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/vendas/editar.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/vendas/salvar.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/pdv/index.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/pdv/js/pdv.js
+[2025-10-19 17:53:46] ✅ Copiado: modulos/pdv/actions.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/pdv/css/pdv.css
+[2025-10-19 17:53:46] ✅ Copiado: modulos/dashboard/index.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/usuarios/excluir.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/usuarios/index.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/usuarios/editar.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/usuarios/salvar.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/financeiro/categorias/ativar.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/financeiro/categorias/excluir.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/financeiro/categorias/index.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/financeiro/categorias/editar.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/financeiro/categorias/salvar.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/financeiro/excluir.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/financeiro/index.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/financeiro/editar.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/financeiro/salvar.php
+[2025-10-19 17:53:46] ⏭️ Ignorado: modulos/financeiro/uploads
+[2025-10-19 17:53:46] ⏭️ Ignorado: modulos/financeiro/uploads/nfe_1759866556.png
+[2025-10-19 17:53:46] ⏭️ Ignorado: modulos/financeiro/uploads/nfe_1759871987.png
+[2025-10-19 17:53:46] ✅ Copiado: modulos/financeiro/contas/ativar.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/financeiro/contas/excluir.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/financeiro/contas/index.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/financeiro/contas/editar.php
+[2025-10-19 17:53:46] ✅ Copiado: modulos/financeiro/contas/salvar.php
+[2025-10-19 17:53:46] ✅ Copiado: updates/1.0.0.sql
+[2025-10-19 17:53:46] ✅ Copiado: updates/1.0.1.sql
+[2025-10-19 17:53:46] ✅ Deploy concluído com sucesso para v1.0.5
+[2025-10-19 17:55:49] ✅ Nenhuma atualização necessária. Versão atual: v1.0.5
+[2025-10-19 17:59:53] ✅ Nenhuma atualização necessária. Versão atual: v1.0.5

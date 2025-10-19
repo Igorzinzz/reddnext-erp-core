@@ -1,11 +1,11 @@
 <?php
 /**
- * 🚀 Reddnext ERP — Deploy Automático (v2.4 - Hostinger Stable)
+ * 🚀 Reddnext ERP — Deploy Automático (v2.6 - Hostinger Stable)
+ * Servidor Fixo: deploy.php nunca é sobrescrito
  * - Sempre lê a ÚLTIMA TAG do GitHub (nunca 'main')
- * - Extrai em pasta temporária e copia recursivamente
- * - Ignora arquivos sensíveis (config, uploads, env, etc.)
+ * - Ignora config/env/uploads/logs/deploy
  * - Suporta ?force=1 e ?debug=1
- * - 100% compatível com hospedagem Hostinger
+ * - Compatível com Hostinger e ambientes compartilhados
  */
 
 $senhaSegura = 'mantereddpdv'; // 🔐 senha de segurança
@@ -26,7 +26,6 @@ if ($token !== $senhaSegura) {
 // ===========================
 $repoOwner = 'Igorzinzz';
 $repoName  = 'reddnext-erp-core';
-$branch    = 'main';
 $baseDir   = __DIR__;
 $versaoLocalFile = $baseDir . '/versao.txt';
 $zipFile   = $baseDir . '/update.zip';
@@ -54,7 +53,6 @@ function getVersaoRemota($owner, $repo) {
     $tagsJson = null;
     $httpCode = 0;
 
-    // 🔹 Usa cURL (mais confiável)
     if (function_exists('curl_init')) {
         $ch = curl_init($tagsUrl);
         curl_setopt_array($ch, [
@@ -77,7 +75,6 @@ function getVersaoRemota($owner, $repo) {
         }
     }
 
-    // 🚨 Caso não consiga ler tags
     return 'v0.0.0';
 }
 
@@ -125,6 +122,7 @@ function rrmdir($dir) {
 
 /**
  * 🔁 Copia recursivamente, ignorando paths sensíveis
+ * (corrigido: nunca sobrescreve deploy.php mesmo dentro de pastas)
  */
 function rrcopy($src, $dst, $skip, $debug, $logFile) {
     $it = new RecursiveIteratorIterator(
@@ -133,10 +131,12 @@ function rrcopy($src, $dst, $skip, $debug, $logFile) {
     );
     foreach ($it as $item) {
         $rel = ltrim(str_replace($src, '', $item->getPathname()), DIRECTORY_SEPARATOR);
+        $basename = basename($rel); // nome puro do arquivo
 
-        // Ignora se o caminho CONTÉM algum termo do skip
+        // Ignora se o caminho OU o nome contém termo do skip
         foreach ($skip as $ignore) {
-            if (stripos($rel, $ignore) !== false) {
+            $ignore = trim($ignore, '/');
+            if (stripos($rel, $ignore) !== false || stripos($basename, $ignore) !== false) {
                 if ($debug) logMsg("⏭️ Ignorado: $rel", $logFile, '#999');
                 continue 2;
             }
@@ -160,7 +160,7 @@ function rrcopy($src, $dst, $skip, $debug, $logFile) {
 // ===========================
 // 🚀 INÍCIO DO DEPLOY
 // ===========================
-echo "<h2 style='font-family:sans-serif;color:#e31b1b'>🚀 Reddnext ERP - Deploy (v2.4)</h2>";
+echo "<h2 style='font-family:sans-serif;color:#e31b1b'>🚀 Reddnext ERP - Deploy (v2.6)</h2>";
 
 $versaoLocal  = file_exists($versaoLocalFile) ? trim(file_get_contents($versaoLocalFile)) : 'v0.0.0';
 $versaoRemota = getVersaoRemota($repoOwner, $repoName);
@@ -220,8 +220,9 @@ $skip = [
     '.git',
     '.github',
     '.env',
-    '/config.php',
-    '/versao.txt'
+    'config.php',
+    'versao.txt',
+    'deploy.php' // 🚫 nunca sobrescrever o próprio deploy
 ];
 rrcopy($root, $baseDir, $skip, $debug, $logFile);
 
