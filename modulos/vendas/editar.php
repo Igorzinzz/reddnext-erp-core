@@ -23,7 +23,9 @@ if ($id > 0) {
         'data_venda' => date('Y-m-d'),
         'forma_pagamento' => '',
         'status' => 'pendente',
-        'valor_total' => 0
+        'valor_total' => 0,
+        'desconto' => 0,
+        'acrescimo' => 0
     ];
     $itens = [];
 }
@@ -45,10 +47,9 @@ if ($id > 0) {
         <div class="row g-4 mb-4">
             <!-- Cliente -->
             <div class="col-md-4">
-                <label class="form-label fw-semibold">
-                    <i class="bi bi-person me-1"></i>Cliente
-                </label>
-                <select name="cliente_id" id="clienteSelect" class="form-select" required>
+                <label class="form-label fw-semibold"><i class="bi bi-person me-1"></i>Cliente</label>
+                <select name="cliente_id" id="clienteSelect" class="form-select">
+                    <option value="">Sem cliente</option>
                     <?php if (!empty($venda['cliente_id'])): ?>
                         <?php
                         $stmtCli = $conn->prepare("SELECT nome FROM clientes WHERE id = ?");
@@ -64,17 +65,13 @@ if ($id > 0) {
 
             <!-- Data -->
             <div class="col-md-3">
-                <label class="form-label fw-semibold">
-                    <i class="bi bi-calendar-date me-1"></i>Data
-                </label>
+                <label class="form-label fw-semibold"><i class="bi bi-calendar-date me-1"></i>Data</label>
                 <input type="date" name="data_venda" class="form-control" value="<?= $venda['data_venda'] ?>" required>
             </div>
 
             <!-- Forma de Pagamento -->
             <div class="col-md-3">
-                <label class="form-label fw-semibold">
-                    <i class="bi bi-credit-card me-1"></i>Forma de Pagamento
-                </label>
+                <label class="form-label fw-semibold"><i class="bi bi-credit-card me-1"></i>Forma de Pagamento</label>
                 <select name="forma_pagamento" class="form-select" required>
                     <option value="">Selecione</option>
                     <option value="Pix" <?= $venda['forma_pagamento']=='Pix'?'selected':'' ?>>Pix</option>
@@ -86,9 +83,7 @@ if ($id > 0) {
 
             <!-- Status -->
             <div class="col-md-2">
-                <label class="form-label fw-semibold">
-                    <i class="bi bi-flag me-1"></i>Status
-                </label>
+                <label class="form-label fw-semibold"><i class="bi bi-flag me-1"></i>Status</label>
                 <select name="status" class="form-select" required>
                     <option value="pendente" <?= $venda['status']=='pendente'?'selected':'' ?>>Pendente</option>
                     <option value="pago" <?= $venda['status']=='pago'?'selected':'' ?>>Pago</option>
@@ -102,35 +97,45 @@ if ($id > 0) {
         <h5 class="fw-bold mb-3"><i class="bi bi-box-seam me-2"></i>Produtos</h5>
 
         <div class="table-responsive">
-            <table class="table align-middle">
+            <table class="table align-middle table-hover">
                 <thead class="table-light">
                     <tr>
                         <th style="width:50%">Produto</th>
-                        <th style="width:15%">Quantidade</th>
+                        <th style="width:20%">Quantidade</th>
                         <th style="width:20%">Valor Unitário</th>
-                        <th style="width:10%">Ações</th>
+                        <th style="width:10%" class="text-center">Ações</th>
                     </tr>
                 </thead>
                 <tbody id="itensContainer">
                     <?php foreach ($itens as $i => $item): ?>
+                        <?php
+                        $stmtP = $conn->prepare("SELECT nome, tipo_unidade FROM vendas_estoque WHERE id = ?");
+                        $stmtP->execute([$item['produto_id']]);
+                        $p = $stmtP->fetch(PDO::FETCH_ASSOC);
+                        $unidade = $p['tipo_unidade'] ?? 'UN';
+                        ?>
                         <tr class="item-linha">
                             <td>
-                                <select name="produtos[<?= $i ?>][id]" class="form-select produtoSelect" required>
-                                    <?php
-                                    $stmtP = $conn->prepare("SELECT nome FROM vendas_estoque WHERE id = ?");
-                                    $stmtP->execute([$item['produto_id']]);
-                                    $nomeProd = $stmtP->fetchColumn();
-                                    ?>
-                                    <option value="<?= $item['produto_id'] ?>" selected><?= htmlspecialchars($nomeProd) ?></option>
-                                </select>
+                                <div class="d-flex align-items-center gap-2">
+                                    <select name="produtos[<?= $i ?>][id]" class="form-select produtoSelect" required>
+                                        <option value="<?= $item['produto_id'] ?>" selected><?= htmlspecialchars($p['nome']) ?></option>
+                                    </select>
+                                    <span class="badge bg-light text-dark border unidadeBadge"><?= $unidade ?></span>
+                                </div>
                             </td>
                             <td>
-                                <input type="number" step="1" min="1" name="produtos[<?= $i ?>][qtd]"
-                                       value="<?= $item['quantidade'] ?>" class="form-control qtdInput" required>
+                                <input type="number"
+                                       step="<?= $unidade == 'KG' ? '0.001' : '1' ?>"
+                                       min="<?= $unidade == 'KG' ? '0.001' : '1' ?>"
+                                       name="produtos[<?= $i ?>][qtd]"
+                                       value="<?= $item['quantidade'] ?>"
+                                       class="form-control qtdInput text-center"
+                                       required>
                             </td>
                             <td>
                                 <input type="number" step="0.01" name="produtos[<?= $i ?>][valor]"
-                                       value="<?= $item['valor_unitario'] ?>" class="form-control valorInput" required>
+                                       value="<?= $item['valor_unitario'] ?>"
+                                       class="form-control valorInput text-center" required>
                             </td>
                             <td class="text-center">
                                 <button type="button" class="btn btn-outline-danger btn-sm removerItem">
@@ -151,11 +156,28 @@ if ($id > 0) {
 
         <hr class="my-4">
 
+        <!-- Ajustes -->
+        <div class="row justify-content-end mb-3">
+            <div class="col-md-2">
+                <label class="form-label fw-semibold">Tipo de Ajuste</label>
+                <select name="ajuste_tipo" id="ajusteTipo" class="form-select">
+                    <option value="desconto" <?= ($venda['acrescimo'] <= 0) ? 'selected' : '' ?>>Desconto</option>
+                    <option value="acrescimo" <?= ($venda['acrescimo'] > 0) ? 'selected' : '' ?>>Acréscimo</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label fw-semibold">Valor do Ajuste (R$)</label>
+                <input type="number" step="0.01" name="ajuste_valor" id="ajusteValor" class="form-control text-end"
+                       value="<?= number_format(max($venda['desconto'], $venda['acrescimo']), 2, '.', '') ?>">
+            </div>
+        </div>
+
+        <!-- Totais -->
         <div class="row justify-content-end">
             <div class="col-md-3">
                 <label class="form-label fw-semibold">Valor Total</label>
                 <input type="text" name="valor_total" id="valorTotal"
-                       class="form-control fw-bold text-danger"
+                       class="form-control fw-bold text-danger text-end"
                        readonly value="<?= number_format($venda['valor_total'], 2, ',', '.') ?>">
             </div>
         </div>
@@ -172,9 +194,10 @@ if ($id > 0) {
 $(document).ready(function() {
     const container = $("#itensContainer");
 
-    // === CLIENTE (busca AJAX) ===
+    // === CLIENTE ===
     $('#clienteSelect').select2({
         placeholder: "Digite o nome do cliente...",
+        allowClear: true,
         ajax: {
             url: "clientes/buscar.php",
             dataType: 'json',
@@ -188,7 +211,7 @@ $(document).ready(function() {
         minimumInputLength: 2
     });
 
-    // === PRODUTOS (busca AJAX) ===
+    // === PRODUTOS ===
     function ativarSelect2Produtos() {
         $('.produtoSelect').select2({
             placeholder: "Digite o nome do produto...",
@@ -206,6 +229,12 @@ $(document).ready(function() {
         }).on('select2:select', function(e) {
             const data = e.params.data;
             const linha = $(this).closest('tr');
+            const unidade = data.tipo_unidade || 'UN';
+            linha.find('.unidadeBadge').text(unidade);
+            const inputQtd = linha.find('.qtdInput');
+            inputQtd.attr('step', unidade === 'KG' ? '0.001' : '1');
+            inputQtd.attr('min', unidade === 'KG' ? '0.001' : '1');
+            inputQtd.val(unidade === 'KG' ? '0.001' : '1');
             linha.find('.valorInput').val(parseFloat(data.preco).toFixed(2));
             atualizarTotal();
         });
@@ -213,14 +242,19 @@ $(document).ready(function() {
 
     ativarSelect2Produtos();
 
-    // === Adicionar novo item ===
+    // === Adicionar item ===
     $("#addItem").on("click", function() {
         const index = container.find(".item-linha").length;
         const html = `
         <tr class="item-linha">
-            <td><select name="produtos[${index}][id]" class="form-select produtoSelect" required></select></td>
-            <td><input type="number" step="1" min="1" name="produtos[${index}][qtd]" class="form-control qtdInput" value="1" required></td>
-            <td><input type="number" step="0.01" name="produtos[${index}][valor]" class="form-control valorInput" required></td>
+            <td>
+                <div class="d-flex align-items-center gap-2">
+                    <select name="produtos[${index}][id]" class="form-select produtoSelect" required></select>
+                    <span class="badge bg-light text-dark border unidadeBadge">UN</span>
+                </div>
+            </td>
+            <td><input type="number" step="1" min="1" name="produtos[${index}][qtd]" value="1" class="form-control qtdInput text-center" required></td>
+            <td><input type="number" step="0.01" name="produtos[${index}][valor]" class="form-control valorInput text-center" required></td>
             <td class="text-center"><button type="button" class="btn btn-outline-danger btn-sm removerItem"><i class="bi bi-x"></i></button></td>
         </tr>`;
         container.append(html);
@@ -241,6 +275,15 @@ $(document).ready(function() {
             const valor = parseFloat($(this).find(".valorInput").val()) || 0;
             total += qtd * valor;
         });
+
+        const ajusteTipo = $("#ajusteTipo").val();
+        const ajusteValor = parseFloat($("#ajusteValor").val()) || 0;
+
+        if (ajusteTipo === 'desconto') total -= ajusteValor;
+        else total += ajusteValor;
+
+        if (total < 0) total = 0;
+
         $("#valorTotal").val(total.toLocaleString('pt-BR', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
@@ -248,6 +291,7 @@ $(document).ready(function() {
     }
 
     container.on("input", ".qtdInput, .valorInput", atualizarTotal);
+    $("#ajusteValor, #ajusteTipo").on("input change", atualizarTotal);
 });
 </script>
 

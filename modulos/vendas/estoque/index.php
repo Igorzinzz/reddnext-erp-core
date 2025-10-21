@@ -93,6 +93,7 @@ $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <tr>
                         <th>ID</th>
                         <th>Produto</th>
+                        <th>Unidade</th>
                         <th>Preço Custo</th>
                         <th>Preço Venda</th>
                         <th>Lucro Unit.</th>
@@ -107,10 +108,21 @@ $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <?php foreach ($produtos as $p): 
                             $lucro = $p['preco_venda'] - $p['preco_custo'];
                             $baixo = $p['estoque_minimo'] > 0 && $p['estoque_atual'] < $p['estoque_minimo'];
+                            $un = strtoupper(trim($p['tipo_unidade'] ?? 'UN'));
+                            if (!in_array($un, ['UN', 'KG'])) $un = 'UN';
+
+                            $estoqueAtual = ($un === 'KG')
+                                ? number_format($p['estoque_atual'], 3, ',', '.') . ' kg'
+                                : number_format($p['estoque_atual'], 0, ',', '.') . ' un';
+
+                            $estoqueMinimo = ($un === 'KG')
+                                ? number_format($p['estoque_minimo'], 3, ',', '.') . ' kg'
+                                : number_format($p['estoque_minimo'], 0, ',', '.') . ' un';
                         ?>
                             <tr class="<?= $baixo ? 'table-warning' : '' ?>">
                                 <td><?= $p['id'] ?></td>
                                 <td class="fw-semibold"><?= htmlspecialchars($p['nome']) ?></td>
+                                <td><span class="badge bg-light text-dark border"><?= $un ?></span></td>
                                 <td>R$ <?= number_format($p['preco_custo'], 2, ',', '.') ?></td>
                                 <td>R$ <?= number_format($p['preco_venda'], 2, ',', '.') ?></td>
                                 <td>
@@ -121,12 +133,12 @@ $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <?= number_format($p['estoque_atual'], 2, ',', '.') ?>
+                                    <?= $estoqueAtual ?>
                                     <?php if ($baixo): ?>
                                         <span class="badge bg-warning text-dark ms-2">Baixo</span>
                                     <?php endif; ?>
                                 </td>
-                                <td><?= number_format($p['estoque_minimo'], 2, ',', '.') ?></td>
+                                <td><?= $estoqueMinimo ?></td>
                                 <td>
                                     <?php if ($p['ativo']): ?>
                                         <span class="badge bg-success">Ativo</span>
@@ -147,7 +159,7 @@ $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="9" class="text-center text-muted py-4">
+                            <td colspan="10" class="text-center text-muted py-4">
                                 <i class="bi bi-info-circle me-2"></i>Nenhum produto encontrado.
                             </td>
                         </tr>

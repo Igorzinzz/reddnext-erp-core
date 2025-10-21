@@ -42,7 +42,9 @@ function search_products(PDO $conn, array $json): void {
             p.preco_venda,
             p.estoque_atual,
             p.estoque_minimo,
-            p.imagem_url
+            p.imagem_url,
+            p.tipo_unidade,
+            p.peso_variavel
         FROM vendas_estoque p
         WHERE p.ativo = 1
     ";
@@ -73,7 +75,9 @@ function product_by_id(PDO $conn, array $json): void {
             p.preco_custo,
             p.estoque_atual,
             p.estoque_minimo,
-            p.imagem_url
+            p.imagem_url,
+            p.tipo_unidade,
+            p.peso_variavel
         FROM vendas_estoque p
         WHERE p.id = ? AND p.ativo = 1
         LIMIT 1
@@ -103,7 +107,7 @@ function finalize_sale(PDO $conn, array $json, bool $debitar, string $status): v
         return;
     }
 
-    // Localiza ou cria cliente
+    // Localiza ou cria cliente (opcional)
     $clienteId = null;
     if ($clienteNome) {
         $stmt = $conn->prepare("SELECT id FROM clientes WHERE nome = ? LIMIT 1");
@@ -137,6 +141,7 @@ function finalize_sale(PDO $conn, array $json, bool $debitar, string $status): v
     // Transação
     $conn->beginTransaction();
     try {
+        // Cria venda
         $stmt = $conn->prepare("
             INSERT INTO vendas 
             (cliente_id, data_venda, valor_total, desconto, acrescimo, forma_pagamento, status, criado_em, observacoes)
@@ -175,6 +180,42 @@ function finalize_sale(PDO $conn, array $json, bool $debitar, string $status): v
             }
         }
 
+        // ==============================
+        // Integração Financeira
+        // ==============================
+        $clienteNomeFinal = $clienteNome ?: 'Cliente não identificado';
+        $descricao = "Venda #{$vendaId} - {$clienteNomeFinal}";
+
+        // Verifica se já existe lançamento (raro, mas evita duplicidade)
+        $stmtCheck = $conn->prepare("SELECT id FROM financeiro WHERE referencia_tipo = 'venda' AND referencia_id = ?");
+        $stmtCheck->execute([$vendaId]);
+        $idFin = $stmtCheck->fetchColumn();
+
+        if ($status === 'pago') {
+            if ($idFin) {
+                $stmtUpdate = $conn->prepare("
+                    UPDATE financeiro 
+                    SET valor = ?, forma_pagamento = ?, status = 'pago', atualizado_em = NOW()
+                    WHERE id = ?
+                ");
+                $stmtUpdate->execute([$total_final, $forma, $idFin]);
+            } else {
+                $stmtInsert = $conn->prepare("
+                    INSERT INTO financeiro (
+                        tipo, categoria, descricao, valor, data_lancamento, data_vencimento,
+                        forma_pagamento, conta, status, referencia_tipo, referencia_id, criado_em
+                    ) VALUES (
+                        'receita', 'Vendas', ?, ?, NOW(), NOW(), ?, 'Caixa Principal', 'pago', 'venda', ?, NOW()
+                    )
+                ");
+                $stmtInsert->execute([$descricao, $total_final, $forma, $vendaId]);
+            }
+        } elseif (in_array($status, ['pendente', 'cancelada'])) {
+            if ($idFin) {
+                $conn->prepare("DELETE FROM financeiro WHERE id = ?")->execute([$idFin]);
+            }
+        }
+
         $conn->commit();
         echo json_encode(['ok' => true, 'sale_id' => $vendaId]);
 
@@ -201,3 +242,4 @@ function ultimas_vendas(PDO $conn): void {
     $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
     echo json_encode(['ok' => true, 'data' => $data]);
 }
+?>

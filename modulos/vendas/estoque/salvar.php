@@ -8,14 +8,34 @@ try {
     $codigo_ean = trim($_POST['codigo_ean'] ?? '');
     $preco_custo = floatval($_POST['preco_custo'] ?? 0);
     $preco_venda = floatval($_POST['preco_venda'] ?? 0);
-    $estoque_atual = floatval($_POST['estoque_atual'] ?? 0);
-    $estoque_minimo = floatval($_POST['estoque_minimo'] ?? 0);
+    $tipo_unidade = strtoupper(trim($_POST['tipo_unidade'] ?? 'UN'));
+    $peso_variavel = isset($_POST['peso_variavel']) ? 1 : 0;
     $ativo = isset($_POST['ativo']) ? 1 : 0;
     $remover_imagem = intval($_POST['remover_imagem'] ?? 0);
     $imagem_url = null;
 
+    // ==========================
+    // Validação básica
+    // ==========================
     if (empty($nome)) throw new Exception("O nome do produto é obrigatório.");
     if ($preco_venda <= 0) throw new Exception("O preço de venda deve ser maior que zero.");
+    if (!in_array($tipo_unidade, ['UN', 'KG'])) $tipo_unidade = 'UN';
+
+    // Estoques com tratamento de unidade
+    $estoque_atual = floatval($_POST['estoque_atual'] ?? 0);
+    $estoque_minimo = floatval($_POST['estoque_minimo'] ?? 0);
+
+    if ($tipo_unidade === 'KG') {
+        $estoque_atual = round($estoque_atual, 3);
+        $estoque_minimo = round($estoque_minimo, 3);
+    } else {
+        // Impede valores quebrados em unidade
+        if (fmod($estoque_atual, 1) != 0 || fmod($estoque_minimo, 1) != 0) {
+            throw new Exception("Produtos em unidade (UN) não podem ter estoque fracionado.");
+        }
+        $estoque_atual = intval($estoque_atual);
+        $estoque_minimo = intval($estoque_minimo);
+    }
 
     // ==========================
     // Upload e compressão automática
@@ -71,33 +91,36 @@ try {
         if ($remover_imagem === 1) {
             $stmt = $conn->prepare("
                 UPDATE vendas_estoque 
-                SET nome=?, codigo_ean=?, preco_custo=?, preco_venda=?, estoque_atual=?, estoque_minimo=?, ativo=?, imagem_url=NULL 
+                SET nome=?, codigo_ean=?, preco_custo=?, preco_venda=?, estoque_atual=?, estoque_minimo=?, 
+                    tipo_unidade=?, peso_variavel=?, ativo=?, imagem_url=NULL 
                 WHERE id=?
             ");
-            $stmt->execute([$nome, $codigo_ean, $preco_custo, $preco_venda, $estoque_atual, $estoque_minimo, $ativo, $id]);
+            $stmt->execute([$nome, $codigo_ean, $preco_custo, $preco_venda, $estoque_atual, $estoque_minimo, $tipo_unidade, $peso_variavel, $ativo, $id]);
         } elseif ($imagem_url) {
             $stmt = $conn->prepare("
                 UPDATE vendas_estoque 
-                SET nome=?, codigo_ean=?, preco_custo=?, preco_venda=?, estoque_atual=?, estoque_minimo=?, ativo=?, imagem_url=? 
+                SET nome=?, codigo_ean=?, preco_custo=?, preco_venda=?, estoque_atual=?, estoque_minimo=?, 
+                    tipo_unidade=?, peso_variavel=?, ativo=?, imagem_url=? 
                 WHERE id=?
             ");
-            $stmt->execute([$nome, $codigo_ean, $preco_custo, $preco_venda, $estoque_atual, $estoque_minimo, $ativo, $imagem_url, $id]);
+            $stmt->execute([$nome, $codigo_ean, $preco_custo, $preco_venda, $estoque_atual, $estoque_minimo, $tipo_unidade, $peso_variavel, $ativo, $imagem_url, $id]);
         } else {
             $stmt = $conn->prepare("
                 UPDATE vendas_estoque 
-                SET nome=?, codigo_ean=?, preco_custo=?, preco_venda=?, estoque_atual=?, estoque_minimo=?, ativo=? 
+                SET nome=?, codigo_ean=?, preco_custo=?, preco_venda=?, estoque_atual=?, estoque_minimo=?, 
+                    tipo_unidade=?, peso_variavel=?, ativo=? 
                 WHERE id=?
             ");
-            $stmt->execute([$nome, $codigo_ean, $preco_custo, $preco_venda, $estoque_atual, $estoque_minimo, $ativo, $id]);
+            $stmt->execute([$nome, $codigo_ean, $preco_custo, $preco_venda, $estoque_atual, $estoque_minimo, $tipo_unidade, $peso_variavel, $ativo, $id]);
         }
     } else {
         // Inserção
         $stmt = $conn->prepare("
             INSERT INTO vendas_estoque 
-            (nome, codigo_ean, preco_custo, preco_venda, estoque_atual, estoque_minimo, ativo, imagem_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (nome, codigo_ean, preco_custo, preco_venda, estoque_atual, estoque_minimo, tipo_unidade, peso_variavel, ativo, imagem_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
-        $stmt->execute([$nome, $codigo_ean, $preco_custo, $preco_venda, $estoque_atual, $estoque_minimo, $ativo, $imagem_url]);
+        $stmt->execute([$nome, $codigo_ean, $preco_custo, $preco_venda, $estoque_atual, $estoque_minimo, $tipo_unidade, $peso_variavel, $ativo, $imagem_url]);
     }
 
     header("Location: index.php?ok=1&msg=" . urlencode("Produto salvo com sucesso!"));

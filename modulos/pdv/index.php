@@ -158,6 +158,31 @@ startContent();
   </div>
 </div>
 
+<!-- MODAL PESO VARIÁVEL -->
+<div class="modal fade" id="modalPeso" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-danger text-white border-0">
+        <h5 class="modal-title fw-bold"><i class="bi bi-scales me-2"></i>Peso do Produto</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-2">Informe o peso em quilogramas (kg) para <strong id="pesoProdutoNome"></strong>:</p>
+        <div class="input-group">
+          <span class="input-group-text">KG</span>
+          <input type="number" step="0.001" min="0.001" class="form-control" id="pesoProdutoValor" placeholder="Ex: 0.475">
+        </div>
+      </div>
+      <div class="modal-footer bg-light border-0">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="confirmarPeso">
+          <i class="bi bi-check2-circle me-2"></i>Confirmar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- HISTÓRICO DE VENDAS -->
 <div class="offcanvas offcanvas-end" tabindex="-1" id="painelHistorico">
   <div class="offcanvas-header border-bottom">
@@ -184,6 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'F2') document.getElementById('finalizarVenda').click();
     if (e.key === 'F3') document.getElementById('buscaProduto').focus();
+    if (e.key === 'F4') document.getElementById('limparCarrinho').click();
   });
 
   document.getElementById('verHistorico').addEventListener('click', () => {

@@ -19,7 +19,9 @@ if ($id > 0) {
         'estoque_atual' => '',
         'estoque_minimo' => '',
         'ativo' => 1,
-        'imagem_url' => ''
+        'imagem_url' => '',
+        'tipo_unidade' => 'UN',
+        'peso_variavel' => 0
     ];
 }
 ?>
@@ -55,19 +57,28 @@ if ($id > 0) {
                        pattern="[0-9]{8,13}"
                        title="Somente números (8 a 13 dígitos)"
                        value="<?= htmlspecialchars($produto['codigo_ean']) ?>">
-                <div class="form-text text-muted">
-                    Código de barras (EAN-8 ou EAN-13)
-                </div>
+                <div class="form-text text-muted">Código de barras (EAN-8 ou EAN-13)</div>
             </div>
 
-            <!-- Preço -->
+            <!-- Tipo de Unidade -->
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Tipo de Unidade</label>
+                <select name="tipo_unidade" id="tipo_unidade" class="form-select" required>
+                    <option value="UN" <?= $produto['tipo_unidade'] === 'UN' ? 'selected' : '' ?>>Unidade (UN)</option>
+                    <option value="KG" <?= $produto['tipo_unidade'] === 'KG' ? 'selected' : '' ?>>Quilograma (KG)</option>
+                </select>
+                <div class="form-text text-muted">Define como o produto é vendido</div>
+            </div>
+
+            <!-- Preço de Venda -->
             <div class="col-md-3">
                 <label class="form-label fw-semibold">Preço de Venda (R$)</label>
                 <input type="number" step="0.01" name="preco_venda" class="form-control" required
                        value="<?= htmlspecialchars($produto['preco_venda']) ?>">
+                <div class="form-text text-muted">Preço por unidade ou por kg</div>
             </div>
 
-            <!-- Custo -->
+            <!-- Preço de Custo -->
             <div class="col-md-3">
                 <label class="form-label fw-semibold">Preço de Custo (R$)</label>
                 <input type="number" step="0.01" name="preco_custo" class="form-control" required
@@ -77,14 +88,25 @@ if ($id > 0) {
             <!-- Estoques -->
             <div class="col-md-3">
                 <label class="form-label fw-semibold">Estoque Atual</label>
-                <input type="number" step="0.01" name="estoque_atual" class="form-control" required
+                <input type="number" name="estoque_atual" id="estoque_atual" class="form-control" required
                        value="<?= htmlspecialchars($produto['estoque_atual']) ?>">
             </div>
 
             <div class="col-md-3">
                 <label class="form-label fw-semibold">Estoque Mínimo</label>
-                <input type="number" step="0.01" name="estoque_minimo" class="form-control"
+                <input type="number" name="estoque_minimo" id="estoque_minimo" class="form-control"
                        value="<?= htmlspecialchars($produto['estoque_minimo']) ?>">
+            </div>
+
+            <!-- Peso Variável -->
+            <div class="col-md-3">
+                <label class="form-label fw-semibold d-block">Produto de Peso Variável</label>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" name="peso_variavel" value="1"
+                           <?= !empty($produto['peso_variavel']) ? 'checked' : '' ?>>
+                    <label class="form-check-label">Sim (preço calculado pelo peso)</label>
+                </div>
+                <div class="form-text text-muted">Usado para carnes, frutas, frios etc.</div>
             </div>
 
             <!-- Imagem -->
@@ -153,6 +175,26 @@ document.getElementById("btnRemoverImg")?.addEventListener("click", () => {
         document.getElementById("previewBox").style.display = "none";
         document.getElementById("remover_imagem").value = "1";
     }
+});
+
+// --- Regras de unidade (UN vs KG) ---
+document.addEventListener('DOMContentLoaded', () => {
+  const tipo = document.getElementById('tipo_unidade');
+  const estoqueInputs = [document.getElementById('estoque_atual'), document.getElementById('estoque_minimo')];
+
+  function aplicarRestricao() {
+    const isKg = tipo.value === 'KG';
+    estoqueInputs.forEach(input => {
+      input.step = isKg ? "0.001" : "1";
+      input.min = "0";
+      input.value = isKg
+        ? parseFloat(input.value || 0).toFixed(3)
+        : Math.floor(parseFloat(input.value || 0));
+    });
+  }
+
+  tipo.addEventListener('change', aplicarRestricao);
+  aplicarRestricao(); // aplica ao carregar
 });
 </script>
 

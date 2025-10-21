@@ -272,10 +272,11 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
             </div>
 
             <div class="d-flex align-items-center gap-3">
-                <span class="text-muted small"><?= htmlspecialchars($_SESSION['usuario']['nome'] ?? '') ?></span>
-                <a href="<?= $config['base_url'] ?>core/logout.php" class="btn btn-sm btn-outline-danger">
-                    <i class="bi bi-box-arrow-right"></i> Sair
-                </a>
+              <span class="text-muted small"><?= htmlspecialchars($_SESSION['usuario']['nome'] ?? '') ?></span>
+
+              <a href="/core/logout.php" class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-box-arrow-right"></i> Sair
+              </a>
             </div>
         </header>
 

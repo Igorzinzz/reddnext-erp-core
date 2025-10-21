@@ -1,12 +1,18 @@
 <?php
 session_start();
 
-// Destrói todas as variáveis da sessão
-$_SESSION = [];
+// Se houver sessão ativa, limpa e destrói
+if (isset($_SESSION)) {
+    $_SESSION = [];
+    session_destroy();
+}
 
-// Finaliza a sessão
-session_destroy();
+// Detecta protocolo (http ou https)
+$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https://" : "http://";
 
-// Redireciona de volta para o login
-header("Location: ../login.php");
+// Detecta domínio atual
+$host = $_SERVER['HTTP_HOST'];
+
+// Redireciona sempre para o login na raiz do domínio
+header("Location: " . $protocol . $host . "/login.php");
 exit;
