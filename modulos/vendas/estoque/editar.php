@@ -4,8 +4,11 @@ include '../../../core/auth.php';
 include '../../../core/layout.php';
 startContent();
 
-$id = intval($_GET['id'] ?? 0);
+// Puxa margem padrão global das configurações
+$configuracoes = $conn->query("SELECT margem_padrao FROM config_sistema LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+$margem_global = floatval($configuracoes['margem_padrao'] ?? 30);
 
+$id = intval($_GET['id'] ?? 0);
 if ($id > 0) {
     $stmt = $conn->prepare("SELECT * FROM vendas_estoque WHERE id = ?");
     $stmt->execute([$id]);
@@ -21,7 +24,8 @@ if ($id > 0) {
         'ativo' => 1,
         'imagem_url' => '',
         'tipo_unidade' => 'UN',
-        'peso_variavel' => 0
+        'peso_variavel' => 0,
+        'margem_padrao' => $margem_global
     ];
 }
 ?>
@@ -52,7 +56,7 @@ if ($id > 0) {
             <!-- EAN -->
             <div class="col-md-3">
                 <label class="form-label fw-semibold">Código EAN</label>
-                <input type="text" name="codigo_ean" class="form-control" 
+                <input type="text" name="codigo_ean" class="form-control"
                        placeholder="Ex: 7891234567890"
                        pattern="[0-9]{8,13}"
                        title="Somente números (8 a 13 dígitos)"
@@ -60,35 +64,44 @@ if ($id > 0) {
                 <div class="form-text text-muted">Código de barras (EAN-8 ou EAN-13)</div>
             </div>
 
-            <!-- Tipo de Unidade -->
+            <!-- Tipo -->
             <div class="col-md-3">
                 <label class="form-label fw-semibold">Tipo de Unidade</label>
                 <select name="tipo_unidade" id="tipo_unidade" class="form-select" required>
-                    <option value="UN" <?= $produto['tipo_unidade'] === 'UN' ? 'selected' : '' ?>>Unidade (UN)</option>
-                    <option value="KG" <?= $produto['tipo_unidade'] === 'KG' ? 'selected' : '' ?>>Quilograma (KG)</option>
+                    <option value="UN" <?= $produto['tipo_unidade']==='UN'?'selected':'' ?>>Unidade (UN)</option>
+                    <option value="KG" <?= $produto['tipo_unidade']==='KG'?'selected':'' ?>>Quilograma (KG)</option>
                 </select>
-                <div class="form-text text-muted">Define como o produto é vendido</div>
             </div>
 
-            <!-- Preço de Venda -->
-            <div class="col-md-3">
-                <label class="form-label fw-semibold">Preço de Venda (R$)</label>
-                <input type="number" step="0.01" name="preco_venda" class="form-control" required
-                       value="<?= htmlspecialchars($produto['preco_venda']) ?>">
-                <div class="form-text text-muted">Preço por unidade ou por kg</div>
-            </div>
-
-            <!-- Preço de Custo -->
+            <!-- Custo -->
             <div class="col-md-3">
                 <label class="form-label fw-semibold">Preço de Custo (R$)</label>
-                <input type="number" step="0.01" name="preco_custo" class="form-control" required
+                <input type="number" step="0.01" name="preco_custo" id="preco_custo" class="form-control" required
                        value="<?= htmlspecialchars($produto['preco_custo']) ?>">
+            </div>
+
+            <!-- Margem -->
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Margem de Lucro (%)</label>
+                <input type="number" step="0.01" name="margem_padrao" id="margem_padrao" class="form-control"
+                       value="<?= htmlspecialchars($produto['margem_padrao'] ?? $margem_global) ?>">
+                <div class="form-text text-muted">Margem personalizada (padrão: <?= $margem_global ?>%)</div>
+            </div>
+
+            <!-- Venda -->
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Preço de Venda (R$)</label>
+                <input type="number" step="0.01" name="preco_venda" id="preco_venda" class="form-control" required
+                       value="<?= htmlspecialchars($produto['preco_venda']) ?>">
+                <div class="form-text text-muted">
+                    Preço mínimo sugerido: <span id="preco_minimo_text">—</span>
+                </div>
             </div>
 
             <!-- Estoques -->
             <div class="col-md-3">
                 <label class="form-label fw-semibold">Estoque Atual</label>
-                <input type="number" name="estoque_atual" id="estoque_atual" class="form-control" required
+                <input type="number" name="estoque_atual" id="estoque_atual" class="form-control"
                        value="<?= htmlspecialchars($produto['estoque_atual']) ?>">
             </div>
 
@@ -98,29 +111,24 @@ if ($id > 0) {
                        value="<?= htmlspecialchars($produto['estoque_minimo']) ?>">
             </div>
 
-            <!-- Peso Variável -->
+            <!-- Peso variável -->
             <div class="col-md-3">
                 <label class="form-label fw-semibold d-block">Produto de Peso Variável</label>
                 <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" name="peso_variavel" value="1"
-                           <?= !empty($produto['peso_variavel']) ? 'checked' : '' ?>>
+                           <?= !empty($produto['peso_variavel'])?'checked':'' ?>>
                     <label class="form-check-label">Sim (preço calculado pelo peso)</label>
                 </div>
-                <div class="form-text text-muted">Usado para carnes, frutas, frios etc.</div>
             </div>
 
             <!-- Imagem -->
             <div class="col-md-6">
                 <label class="form-label fw-semibold">Imagem do Produto</label>
                 <input type="file" name="imagem" id="imagem" accept="image/*" class="form-control">
-                <div class="form-text text-muted">Opcional — formatos: JPG, PNG, WEBP</div>
-
-                <div class="mt-3" id="previewBox" style="display: <?= !empty($produto['imagem_url']) ? 'block' : 'none' ?>;">
-                    <img id="previewImg"
-                         src="<?= htmlspecialchars($produto['imagem_url'] ?? '') ?>"
-                         alt="Pré-visualização"
-                         class="img-thumbnail"
-                         style="max-width:150px; max-height:150px; object-fit:contain;">
+                <div class="form-text text-muted">Formatos aceitos: JPG, PNG, WEBP</div>
+                <div class="mt-3" id="previewBox" style="display:<?=!empty($produto['imagem_url'])?'block':'none'?>;">
+                    <img id="previewImg" src="<?=htmlspecialchars($produto['imagem_url']??'')?>" 
+                         class="img-thumbnail" style="max-width:150px;max-height:150px;object-fit:contain;">
                     <div class="mt-2">
                         <button type="button" class="btn btn-sm btn-outline-danger" id="btnRemoverImg">
                             <i class="bi bi-trash"></i> Remover Imagem
@@ -130,14 +138,12 @@ if ($id > 0) {
             </div>
         </div>
 
-        <!-- Ativo -->
         <div class="form-check form-switch mt-4">
             <input class="form-check-input" type="checkbox" name="ativo" value="1"
-                   <?= $produto['ativo'] ? 'checked' : '' ?>>
+                   <?= $produto['ativo']?'checked':'' ?>>
             <label class="form-check-label">Produto Ativo</label>
         </div>
 
-        <!-- Botão -->
         <div class="mt-4 text-end">
             <button type="submit" class="btn btn-danger px-4">
                 <i class="bi bi-save me-2"></i>Salvar Produto
@@ -147,55 +153,39 @@ if ($id > 0) {
 </div>
 
 <script>
-// --- Pré-visualização instantânea ---
-document.getElementById("imagem")?.addEventListener("change", function (e) {
-    const file = e.target.files[0];
-    const previewBox = document.getElementById("previewBox");
-    const previewImg = document.getElementById("previewImg");
+// preview imagem
+document.getElementById("imagem")?.addEventListener("change", e=>{
+  const f=e.target.files[0];const b=document.getElementById("previewBox");const i=document.getElementById("previewImg");
+  if(!f){b.style.display="none";i.src="";return;}
+  const r=new FileReader();r.onload=ev=>{i.src=ev.target.result;b.style.display="block";};r.readAsDataURL(f);
+});
+document.getElementById("btnRemoverImg")?.addEventListener("click",()=>{if(confirm("Remover a imagem atual do produto?")){document.getElementById("previewImg").src="";document.getElementById("previewBox").style.display="none";document.getElementById("remover_imagem").value="1";}});
 
-    if (!file) {
-        previewBox.style.display = "none";
-        previewImg.src = "";
-        return;
+// cálculo dinâmico preço e margem
+function atualizarCampos(acao){
+    const custo=parseFloat(document.getElementById('preco_custo').value)||0;
+    const margem=parseFloat(document.getElementById('margem_padrao').value)||0;
+    const vendaInput=document.getElementById('preco_venda');
+    const venda=parseFloat(vendaInput.value)||0;
+
+    // preço mínimo baseado na margem global configurada no servidor
+    const margemGlobal=parseFloat(<?= $margem_global ?>);
+    const precoMinimo=custo*(1+margemGlobal/100);
+    document.getElementById('preco_minimo_text').innerText = precoMinimo>0?'R$ '+precoMinimo.toFixed(2).replace('.',','):'—';
+
+    if(acao==='margem' && custo>0){
+        const novo=custo*(1+margem/100);
+        vendaInput.value=novo.toFixed(2);
+    }else if(acao==='venda' && custo>0){
+        const nova=((venda/custo)-1)*100;
+        document.getElementById('margem_padrao').value=nova.toFixed(2);
     }
-
-    const reader = new FileReader();
-    reader.onload = function (ev) {
-        previewImg.src = ev.target.result;
-        previewBox.style.display = "block";
-        document.getElementById("remover_imagem").value = "0";
-    };
-    reader.readAsDataURL(file);
+}
+['preco_custo','margem_padrao'].forEach(id=>{
+    document.getElementById(id)?.addEventListener('input',()=>atualizarCampos('margem'));
 });
-
-// --- Remover imagem atual ---
-document.getElementById("btnRemoverImg")?.addEventListener("click", () => {
-    if (confirm("Remover a imagem atual do produto?")) {
-        document.getElementById("previewImg").src = "";
-        document.getElementById("previewBox").style.display = "none";
-        document.getElementById("remover_imagem").value = "1";
-    }
-});
-
-// --- Regras de unidade (UN vs KG) ---
-document.addEventListener('DOMContentLoaded', () => {
-  const tipo = document.getElementById('tipo_unidade');
-  const estoqueInputs = [document.getElementById('estoque_atual'), document.getElementById('estoque_minimo')];
-
-  function aplicarRestricao() {
-    const isKg = tipo.value === 'KG';
-    estoqueInputs.forEach(input => {
-      input.step = isKg ? "0.001" : "1";
-      input.min = "0";
-      input.value = isKg
-        ? parseFloat(input.value || 0).toFixed(3)
-        : Math.floor(parseFloat(input.value || 0));
-    });
-  }
-
-  tipo.addEventListener('change', aplicarRestricao);
-  aplicarRestricao(); // aplica ao carregar
-});
+document.getElementById('preco_venda')?.addEventListener('input',()=>atualizarCampos('venda'));
+document.addEventListener('DOMContentLoaded',()=>atualizarCampos('margem'));
 </script>
 
 <?php endContent(); ?>
