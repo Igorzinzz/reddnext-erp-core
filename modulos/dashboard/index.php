@@ -11,12 +11,6 @@ startContent();
 $conn->query("SET sql_mode=(SELECT REPLACE(@@sql_mode,'ONLY_FULL_GROUP_BY',''))"); // segurança pra views/agrupamentos
 
 // =============================
-// CONFIG / TEMA
-// =============================
-$cfg = $conn->query("SELECT tema FROM config_sistema ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-$tema = $cfg['tema'] ?? 'claro';
-
-// =============================
 // KPIs — VENDAS / FINANCEIRO
 // =============================
 

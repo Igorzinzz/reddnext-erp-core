@@ -8,7 +8,6 @@ $current = $_SERVER['REQUEST_URI'];
 // 🔹 Detecta automaticamente o arquivo versao.txt (na raiz do ERP)
 $versaoFile = __DIR__ . '/../versao.txt';
 if (!file_exists($versaoFile)) {
-    // fallback: caso o arquivo esteja na mesma pasta
     $versaoFile = __DIR__ . '/versao.txt';
 }
 
@@ -20,6 +19,45 @@ $versaoSistema = file_exists($versaoFile)
 $dataVersao = file_exists($versaoFile)
     ? date('d/m/Y H:i', filemtime($versaoFile))
     : '-';
+
+// 🔔 Notificações (não quebra nada: usa somente vendas_estoque)
+$notifs = [];
+try {
+    // Estoque baixo
+    $stmtLow = $conn->query("
+        SELECT id, nome 
+        FROM vendas_estoque 
+        WHERE estoque_minimo > 0 AND estoque_atual < estoque_minimo
+        ORDER BY (estoque_minimo - estoque_atual) DESC
+        LIMIT 5
+    ");
+    $lowItems = $stmtLow ? $stmtLow->fetchAll(PDO::FETCH_ASSOC) : [];
+    foreach ($lowItems as $it) {
+        $notifs[] = [
+            'icon' => 'bi-exclamation-circle text-danger',
+            'texto' => 'Estoque baixo: ' . $it['nome'],
+            'href' => $config['base_url'] . 'vendas/estoque/?status=ativo'
+        ];
+    }
+
+    // Preço sugerido pendente
+    $pend = $conn->query("
+        SELECT COUNT(*) 
+        FROM vendas_estoque 
+        WHERE preco_sugerido IS NOT NULL AND preco_sugerido <> preco_venda
+    ");
+    $pendCount = $pend ? (int)$pend->fetchColumn() : 0;
+    if ($pendCount > 0) {
+        $notifs[] = [
+            'icon' => 'bi-arrow-repeat text-warning',
+            'texto' => $pendCount . ' produto(s) com preço sugerido',
+            'href'  => $config['base_url'] . 'vendas/estoque/revisar_precos.php'
+        ];
+    }
+} catch (Throwable $e) {
+    // silencioso: não quebra o layout se não houver tabela/colunas
+}
+$notifCount = count($notifs);
 
 // Funções de layout
 function startContent() { echo '<main class="content px-4 py-3">'; }
@@ -45,12 +83,17 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
 
 <style>
     #sidebar {
-        background-color: #fff;
-        border-right: 1px solid #e0e0e0;
-        width: 250px;
-        min-height: 100vh;
-        transition: all 0.3s ease;
+    background-color: #fff;
+    border-right: 1px solid #e0e0e0;
+    width: 250px;
+    min-height: 100vh;
+    height: 100vh; /* impede o "salto" do menu */
+    transition: width 0.3s ease;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex-shrink: 0;
     }
+    
     #sidebar a {
         color: #333 !important;
         display: flex;
@@ -60,23 +103,28 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
         margin-bottom: 4px;
         font-weight: 500;
         text-decoration: none !important;
-        transition: all 0.2s ease;
+        transition: all 0.25s ease;
     }
+    
     #sidebar a:hover {
         background-color: #dc3545;
         color: #fff !important;
-        padding-left: 20px;
+        transform: translateX(10px); /* 👈 efeito firme, sem mudar o layout */
+        transition: transform 0.25s ease, background-color 0.25s ease;
     }
+    
     #sidebar a.active {
         background-color: #dc3545;
         color: #fff !important;
     }
+    
     #sidebar i {
         width: 22px;
         text-align: center;
         margin-right: 8px;
         font-size: 1rem;
     }
+
     .submenu a {
         font-size: 0.95rem;
         padding-left: 35px;
@@ -165,6 +213,7 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
         </div>
 
         <ul class="list-unstyled px-3 mt-3">
+            <!-- DASHBOARD -->
             <li>
                 <a href="<?= $config['base_url'] ?>dashboard/"
                    class="<?= str_contains($current, '/dashboard/') ? 'active' : '' ?>">
@@ -172,20 +221,7 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
                 </a>
             </li>
 
-            <li>
-                <a href="<?= $config['base_url'] ?>usuarios/"
-                   class="<?= str_contains($current, '/usuarios/') ? 'active' : '' ?>">
-                    <i class="bi bi-people me-2"></i> Usuários
-                </a>
-            </li>
-
-            <li>
-                <a href="<?= $config['base_url'] ?>configuracoes/"
-                   class="<?= str_contains($current, '/configuracoes/') ? 'active' : '' ?>">
-                    <i class="bi bi-gear me-2"></i> Configurações
-                </a>
-            </li>
-
+            <!-- FINANCEIRO -->
             <li class="mt-2">
                 <div class="d-flex align-items-center">
                     <a href="<?= $config['base_url'] ?>financeiro/"
@@ -219,13 +255,15 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
                 </ul>
             </li>
 
+            <!-- VENDAS -->
             <li class="mt-2">
                 <div class="d-flex align-items-center">
                     <a href="<?= $config['base_url'] ?>vendas/"
                        class="flex-grow-1 <?= (
                            str_contains($current, '/vendas/') &&
                            !str_contains($current, '/vendas/clientes/') &&
-                           !str_contains($current, '/vendas/estoque/')
+                           !str_contains($current, '/vendas/estoque/') &&
+                           !str_contains($current, '/vendas/orcamentos/')
                        ) ? 'active' : '' ?>">
                         <i class="bi bi-cart3 me-2"></i> Vendas
                     </a>
@@ -235,7 +273,7 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
                        aria-expanded="<?= str_contains($current, '/vendas/') ? 'true' : 'false' ?>"
                        aria-controls="vendasSub"></i>
                 </div>
-
+            
                 <ul class="collapse submenu <?= str_contains($current, '/vendas/') ? 'show' : '' ?>" id="vendasSub">
                     <li>
                         <a href="<?= $config['base_url'] ?>vendas/clientes/"
@@ -249,7 +287,32 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
                            <i class="bi bi-box-seam me-2"></i> Estoque
                         </a>
                     </li>
+                    <!-- 🆕 ORÇAMENTOS -->
+                    <li>
+                        <a href="<?= $config['base_url'] ?>vendas/orcamentos/"
+                           class="<?= str_contains($current, '/vendas/orcamentos/') ? 'active' : '' ?>">
+                           <i class="bi bi-clipboard-data me-2"></i> Orçamentos
+                        </a>
+                    </li>
                 </ul>
+            </li>
+
+
+            <!-- USUÁRIOS -->
+            <li class="mt-2">
+                <a href="<?= $config['base_url'] ?>usuarios/"
+                   class="<?= str_contains($current, '/usuarios/') ? 'active' : '' ?>">
+                    <i class="bi bi-people me-2"></i> Usuários
+                </a>
+            </li>
+
+            <!-- CONFIGURAÇÕES (sempre no final) -->
+            <hr class="my-3">
+            <li>
+                <a href="<?= $config['base_url'] ?>configuracoes/"
+                   class="<?= str_contains($current, '/configuracoes/') ? 'active' : '' ?>">
+                    <i class="bi bi-gear me-2"></i> Configurações
+                </a>
             </li>
         </ul>
     </nav>
@@ -257,7 +320,7 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
     <!-- Página principal -->
     <div id="page-content-wrapper" class="flex-grow-1 bg-light">
 
-        <!-- Header com botão PDV -->
+        <!-- Header -->
         <header class="navbar navbar-light px-4 py-2 d-flex justify-content-between align-items-center border-bottom bg-white shadow-sm">
             <div class="d-flex align-items-center gap-3">
                 <button class="btn btn-outline-dark btn-sm" id="menu-toggle" title="Alternar menu lateral">
@@ -272,16 +335,70 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
             </div>
 
             <div class="d-flex align-items-center gap-3">
-              <span class="text-muted small"><?= htmlspecialchars($_SESSION['usuario']['nome'] ?? '') ?></span>
+                <!-- 🔔 Notificações -->
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary btn-sm position-relative" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-bell"></i>
+                        <?php if ($notifCount > 0): ?>
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notifCount" style="font-size:10px;"><?= $notifCount ?></span>
+                        <?php endif; ?>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm p-0" style="min-width:260px;">
+                        <li class="dropdown-header bg-danger text-white fw-semibold py-2 px-3">
+                            <i class="bi bi-bell-fill me-1"></i> Notificações
+                        </li>
+                        <li><hr class="dropdown-divider m-0"></li>
 
-              <a href="/core/logout.php" class="btn btn-sm btn-outline-danger">
-                <i class="bi bi-box-arrow-right"></i> Sair
-              </a>
+                        <?php if ($notifCount === 0): ?>
+                            <li><div class="px-3 py-3 small text-muted">Sem novas notificações.</div></li>
+                        <?php else: ?>
+                            <?php foreach ($notifs as $n): ?>
+                                <li>
+                                    <a class="dropdown-item small py-2 d-flex align-items-center" href="<?= htmlspecialchars($n['href']) ?>">
+                                        <i class="bi <?= $n['icon'] ?> me-2"></i>
+                                        <span><?= htmlspecialchars($n['texto']) ?></span>
+                                    </a>
+                                </li>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+
+                        <li><hr class="dropdown-divider m-0"></li>
+                        <li><a class="dropdown-item text-center small text-muted py-2" href="<?= $config['base_url'] ?>vendas/estoque/">Ver todas</a></li>
+                    </ul>
+                </div>
+
+                <span class="text-muted small"><?= htmlspecialchars($_SESSION['usuario']['nome'] ?? '') ?></span>
+                <a href="/core/logout.php" class="btn btn-sm btn-outline-danger">
+                    <i class="bi bi-box-arrow-right"></i> Sair
+                </a>
             </div>
         </header>
 
         <!-- Conteúdo -->
         <?php startContent(); ?>
 
-<!-- Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ===============================
+// Corrige recolhimento dos submenus
+// (mantendo sua marcação original)
+// ===============================
+document.querySelectorAll('.toggle-arrow').forEach(icon => {
+    const targetSel = icon.getAttribute('data-bs-target');
+    const target = document.querySelector(targetSel);
+    if (!target) return;
+
+    // Garante instância do Collapse
+    const collapse = bootstrap.Collapse.getOrCreateInstance(target, { toggle: false });
+
+    // Clique só na setinha: abre/fecha sem navegar
+    icon.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        collapse.toggle();
+    });
+
+    // Sincroniza rotação da seta com o estado do collapse
+    target.addEventListener('shown.bs.collapse', () => icon.classList.add('rotate'));
+    target.addEventListener('hidden.bs.collapse', () => icon.classList.remove('rotate'));
+});
+</script>

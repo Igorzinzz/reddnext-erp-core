@@ -4,10 +4,15 @@ include '../../../core/auth.php';
 include '../../../core/layout.php';
 startContent();
 
-// Puxa margem padrão global das configurações
+// ==========================
+// Margem global (meta padrão)
+// ==========================
 $configuracoes = $conn->query("SELECT margem_padrao FROM config_sistema LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-$margem_global = floatval($configuracoes['margem_padrao'] ?? 30);
+$margem_global = floatval(str_replace(',', '.', $configuracoes['margem_padrao'] ?? '30'));
 
+// ==========================
+// Produto
+// ==========================
 $id = intval($_GET['id'] ?? 0);
 if ($id > 0) {
     $stmt = $conn->prepare("SELECT * FROM vendas_estoque WHERE id = ?");
@@ -28,6 +33,11 @@ if ($id > 0) {
         'margem_padrao' => $margem_global
     ];
 }
+
+// Define margem efetiva para exibir no form
+$margem_produto = isset($produto['margem_padrao']) ? floatval(str_replace(',', '.', $produto['margem_padrao'])) : 0.0;
+$meta_exibida = ($margem_produto > 0) ? $margem_produto : $margem_global;
+$texto_meta = ($margem_produto > 0) ? 'Margem personalizada do produto' : 'Usando margem global padrão';
 ?>
 
 <div class="container-fluid mt-4">
@@ -84,8 +94,10 @@ if ($id > 0) {
             <div class="col-md-3">
                 <label class="form-label fw-semibold">Margem de Lucro (%)</label>
                 <input type="number" step="0.01" name="margem_padrao" id="margem_padrao" class="form-control"
-                       value="<?= htmlspecialchars($produto['margem_padrao'] ?? $margem_global) ?>">
-                <div class="form-text text-muted">Margem personalizada (padrão: <?= $margem_global ?>%)</div>
+                       value="<?= htmlspecialchars($meta_exibida) ?>">
+                <div class="form-text text-muted">
+                    <?= $texto_meta ?> (padrão global: <?= number_format($margem_global, 1, ',', '.') ?>%)
+                </div>
             </div>
 
             <!-- Venda -->
@@ -115,7 +127,7 @@ if ($id > 0) {
             <div class="col-md-3">
                 <label class="form-label fw-semibold d-block">Produto de Peso Variável</label>
                 <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" name="peso_variavel" value="1"
+                    <input class="form-check-input" type="checkbox" name="peso_variavel" id="peso_variavel" value="1"
                            <?= !empty($produto['peso_variavel'])?'checked':'' ?>>
                     <label class="form-check-label">Sim (preço calculado pelo peso)</label>
                 </div>
@@ -153,22 +165,45 @@ if ($id > 0) {
 </div>
 
 <script>
-// preview imagem
+// Preview imagem
 document.getElementById("imagem")?.addEventListener("change", e=>{
-  const f=e.target.files[0];const b=document.getElementById("previewBox");const i=document.getElementById("previewImg");
+  const f=e.target.files[0];
+  const b=document.getElementById("previewBox");
+  const i=document.getElementById("previewImg");
   if(!f){b.style.display="none";i.src="";return;}
-  const r=new FileReader();r.onload=ev=>{i.src=ev.target.result;b.style.display="block";};r.readAsDataURL(f);
+  const r=new FileReader();
+  r.onload=ev=>{i.src=ev.target.result;b.style.display="block";};
+  r.readAsDataURL(f);
 });
-document.getElementById("btnRemoverImg")?.addEventListener("click",()=>{if(confirm("Remover a imagem atual do produto?")){document.getElementById("previewImg").src="";document.getElementById("previewBox").style.display="none";document.getElementById("remover_imagem").value="1";}});
+document.getElementById("btnRemoverImg")?.addEventListener("click",()=>{
+  if(confirm("Remover a imagem atual do produto?")){
+    document.getElementById("previewImg").src="";
+    document.getElementById("previewBox").style.display="none";
+    document.getElementById("remover_imagem").value="1";
+  }
+});
 
-// cálculo dinâmico preço e margem
+// ==========================
+// Sincroniza tipo KG com peso variável
+// ==========================
+const tipoSel=document.getElementById('tipo_unidade');
+const pesoChk=document.getElementById('peso_variavel');
+tipoSel?.addEventListener('change',()=>{
+    if(tipoSel.value==='KG') pesoChk.checked=true;
+});
+pesoChk?.addEventListener('change',()=>{
+    if(pesoChk.checked) tipoSel.value='KG';
+});
+
+// ==========================
+// Cálculo dinâmico de preço e margem
+// ==========================
 function atualizarCampos(acao){
-    const custo=parseFloat(document.getElementById('preco_custo').value)||0;
-    const margem=parseFloat(document.getElementById('margem_padrao').value)||0;
+    const custo=parseFloat(document.getElementById('preco_custo').value.replace(',', '.'))||0;
+    const margem=parseFloat(document.getElementById('margem_padrao').value.replace(',', '.'))||0;
     const vendaInput=document.getElementById('preco_venda');
-    const venda=parseFloat(vendaInput.value)||0;
+    const venda=parseFloat(vendaInput.value.replace(',', '.'))||0;
 
-    // preço mínimo baseado na margem global configurada no servidor
     const margemGlobal=parseFloat(<?= $margem_global ?>);
     const precoMinimo=custo*(1+margemGlobal/100);
     document.getElementById('preco_minimo_text').innerText = precoMinimo>0?'R$ '+precoMinimo.toFixed(2).replace('.',','):'—';
@@ -181,6 +216,7 @@ function atualizarCampos(acao){
         document.getElementById('margem_padrao').value=nova.toFixed(2);
     }
 }
+
 ['preco_custo','margem_padrao'].forEach(id=>{
     document.getElementById(id)?.addEventListener('input',()=>atualizarCampos('margem'));
 });

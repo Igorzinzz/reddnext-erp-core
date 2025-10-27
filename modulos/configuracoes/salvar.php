@@ -10,27 +10,36 @@ try {
         throw new Exception('Método inválido. A requisição deve ser POST.');
     }
 
-    if (empty($_POST)) {
-        throw new Exception('Nenhum dado foi enviado pelo formulário.');
-    }
-
-    // --- Verifica se há registro existente ---
-    $stmt = $conn->query("SELECT id FROM config_sistema LIMIT 1");
-    $id = $stmt->fetchColumn();
+    // ==============================
+    // Verifica ou cria o registro base
+    // ==============================
+    $stmt = $conn->query("SELECT id, logo FROM config_sistema LIMIT 1");
+    $configAtual = $stmt->fetch(PDO::FETCH_ASSOC);
+    $id = $configAtual['id'] ?? null;
+    $logoAtual = $configAtual['logo'] ?? null;
 
     if (!$id) {
         $conn->exec("INSERT INTO config_sistema (nome_empresa) VALUES ('Nova Empresa')");
         $id = $conn->lastInsertId();
     }
 
-    // --- Upload da logo ---
-    $logo = null;
+    // ==============================
+    // Normaliza e valida margem padrão
+    // ==============================
+    $margem_padrao = floatval($_POST['margem_padrao'] ?? 30);
+    if ($margem_padrao < 0) $margem_padrao = 0;
+    if ($margem_padrao > 999) $margem_padrao = 999;
+
+    // ==============================
+    // Upload e compressão automática da logo
+    // ==============================
+    $logoPath = null;
     if (!empty($_FILES['logo']['name'])) {
         $ext = strtolower(pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION));
         $permitidos = ['png', 'jpg', 'jpeg', 'webp'];
 
         if (!in_array($ext, $permitidos)) {
-            throw new Exception('Formato de imagem não permitido.');
+            throw new Exception('Formato de imagem não permitido. Use PNG, JPG ou WEBP.');
         }
 
         $pastaDestino = __DIR__ . '/logo/';
@@ -38,28 +47,74 @@ try {
             mkdir($pastaDestino, 0775, true);
         }
 
-        $logo = 'logo_' . time() . '.' . $ext;
-        $destino = $pastaDestino . $logo;
+        $novoNome = 'logo_' . date('Ymd_His') . '.webp';
+        $destino = $pastaDestino . $novoNome;
+        $tmp = $_FILES['logo']['tmp_name'];
 
-        if (!move_uploaded_file($_FILES['logo']['tmp_name'], $destino)) {
-            throw new Exception('Falha ao salvar a logo.');
+        // Converte e comprime para WEBP
+        switch ($ext) {
+            case 'jpg':
+            case 'jpeg':
+                $img = @imagecreatefromjpeg($tmp);
+                break;
+            case 'png':
+                $img = @imagecreatefrompng($tmp);
+                imagepalettetotruecolor($img);
+                imagealphablending($img, true);
+                imagesavealpha($img, true);
+                break;
+            case 'webp':
+                $img = @imagecreatefromwebp($tmp);
+                break;
+            default:
+                $img = false;
+        }
+
+        if (!$img) {
+            throw new Exception('Erro ao processar a imagem da logo.');
+        }
+
+        if (!imagewebp($img, $destino, 80)) {
+            throw new Exception('Erro ao salvar logo comprimida.');
+        }
+        imagedestroy($img);
+
+        // Caminho relativo
+        $logoPath = 'logo/' . $novoNome;
+
+        // Remove logo antiga se existir
+        if (!empty($logoAtual) && file_exists(__DIR__ . '/' . $logoAtual)) {
+            @unlink(__DIR__ . '/' . $logoAtual);
         }
     }
 
-    // --- Monta SQL de atualização ---
-    $sql = "UPDATE config_sistema SET 
-                nome_empresa = :nome_empresa,
-                cnpj = :cnpj,
-                telefone = :telefone,
-                email = :email,
-                endereco = :endereco,
-                cidade = :cidade,
-                uf = :uf,
-                timezone = :timezone,
-                tema = :tema,
-                atualizado_em = NOW()";
+    // ==============================
+    // Remoção manual da logo (checkbox)
+    // ==============================
+    if (isset($_POST['remover_logo']) && $_POST['remover_logo'] == '1') {
+        if (!empty($logoAtual) && file_exists(__DIR__ . '/' . $logoAtual)) {
+            @unlink(__DIR__ . '/' . $logoAtual);
+        }
+        $logoPath = ''; // será gravado NULL no banco
+    }
 
-    if ($logo) {
+    // ==============================
+    // Atualiza as informações
+    // ==============================
+    $sql = "UPDATE config_sistema SET 
+                nome_empresa   = :nome_empresa,
+                cnpj           = :cnpj,
+                telefone       = :telefone,
+                email          = :email,
+                endereco       = :endereco,
+                cidade         = :cidade,
+                uf             = :uf,
+                timezone       = :timezone,
+                margem_padrao  = :margem_padrao,
+                atualizado_em  = NOW()";
+
+    if ($logoPath !== null) {
+        // Atualiza se nova logo ou se removida
         $sql .= ", logo = :logo";
     }
 
@@ -68,31 +123,33 @@ try {
     $stmt = $conn->prepare($sql);
 
     $params = [
-        ':nome_empresa' => $_POST['nome_empresa'] ?? '',
-        ':cnpj'         => $_POST['cnpj'] ?? '',
-        ':telefone'     => $_POST['telefone'] ?? '',
-        ':email'        => $_POST['email'] ?? '',
-        ':endereco'     => $_POST['endereco'] ?? '',
-        ':cidade'       => $_POST['cidade'] ?? '',
-        ':uf'           => $_POST['uf'] ?? '',
-        ':timezone'     => $_POST['timezone'] ?? 'America/Sao_Paulo',
-        ':tema'         => $_POST['tema'] ?? 'claro',
-        ':id'           => $id
+        ':nome_empresa'  => trim($_POST['nome_empresa'] ?? ''),
+        ':cnpj'          => trim($_POST['cnpj'] ?? ''),
+        ':telefone'      => trim($_POST['telefone'] ?? ''),
+        ':email'         => trim($_POST['email'] ?? ''),
+        ':endereco'      => trim($_POST['endereco'] ?? ''),
+        ':cidade'        => trim($_POST['cidade'] ?? ''),
+        ':uf'            => strtoupper(trim($_POST['uf'] ?? '')),
+        ':timezone'      => trim($_POST['timezone'] ?? 'America/Sao_Paulo'),
+        ':margem_padrao' => $margem_padrao,
+        ':id'            => $id
     ];
 
-    if ($logo) {
-        $params[':logo'] = $logo;
+    if ($logoPath !== null) {
+        $params[':logo'] = $logoPath ?: null;
     }
 
     $stmt->execute($params);
 
-    // --- Se chegar aqui, deu tudo certo ---
-    header("Location: index.php?ok=1&msg=Configurações+salvas+com+sucesso");
+    // ==============================
+    // Redireciona com sucesso
+    // ==============================
+    header("Location: index.php?ok=1&msg=" . urlencode('Configurações salvas com sucesso!'));
     exit;
 
 } catch (Exception $e) {
-    // Redireciona com erro amigável
     $msg = urlencode($e->getMessage());
     header("Location: index.php?erro=1&msg={$msg}");
     exit;
 }
+?>

@@ -20,12 +20,24 @@
         });
     }
 
-    // Ícones de setas animadas (submenu Financeiro, etc.)
-    const toggles = document.querySelectorAll('.toggle-arrow');
-    toggles.forEach(toggle => {
-        toggle.addEventListener('click', () => {
-            toggle.classList.toggle('rotate');
+    // Corrige comportamento das setas dos submenus
+    document.querySelectorAll('.toggle-arrow').forEach(icon => {
+        const targetSel = icon.getAttribute('data-bs-target');
+        const target = document.querySelector(targetSel);
+        if (!target) return;
+
+        const collapse = bootstrap.Collapse.getOrCreateInstance(target, { toggle: false });
+
+        // Clique na seta abre/fecha o submenu
+        icon.addEventListener('click', e => {
+            e.preventDefault();
+            e.stopPropagation();
+            collapse.toggle();
         });
+
+        // Atualiza rotação conforme o estado real
+        target.addEventListener('shown.bs.collapse', () => icon.classList.add('rotate'));
+        target.addEventListener('hidden.bs.collapse', () => icon.classList.remove('rotate'));
     });
 </script>
 
@@ -36,7 +48,6 @@
 $currentPath = $_SERVER['REQUEST_URI'];
 $isPDV = (strpos($currentPath, '/modulos/pdv') !== false);
 
-// Se NÃO estiver no PDV, carrega o chat
 if (!$isPDV):
 ?>
 <!--Start of Tawk.to Script-->

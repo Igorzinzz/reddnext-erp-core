@@ -8,7 +8,7 @@ startContent();
 // Configurações globais (meta padrão)
 // ==========================
 $configuracoes = $conn->query("SELECT margem_padrao FROM config_sistema LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-$margem_global = floatval($configuracoes['margem_padrao'] ?? 30);
+$margem_global = floatval(str_replace(',', '.', $configuracoes['margem_padrao'] ?? '30'));
 
 // ==========================
 // Filtros
@@ -33,7 +33,7 @@ $stmt = $conn->prepare($sql);
 $stmt->execute($params);
 $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Verifica se há produtos com diferença de preço sugerido
+// Verifica produtos com preço sugerido diferente
 $stmtSug = $conn->query("
     SELECT COUNT(*) FROM vendas_estoque 
     WHERE preco_sugerido IS NOT NULL AND preco_sugerido <> preco_venda
@@ -145,30 +145,45 @@ $erro = isset($_GET['erro']);
                             $un = strtoupper(trim($p['tipo_unidade'] ?? 'UN'));
                             if (!in_array($un, ['UN', 'KG'])) $un = 'UN';
 
-                            // Margem ATUAL (real) com base em custo x venda
+                            // ==========================
+                            // MARGEM ATUAL E META EFETIVA
+                            // ==========================
                             $margem_atual = ($p['preco_custo'] > 0)
                                 ? (($p['preco_venda'] / $p['preco_custo']) - 1) * 100
-                                : 0;
-                            $margem_atual = round($margem_atual, 2);
+                                : 0.0;
 
-                            // Meta de margem: primeiro a do produto (se >0), senão a global
-                            $meta_produto = isset($p['margem_padrao']) ? floatval($p['margem_padrao']) : 0.0;
-                            $meta_efetiva = ($meta_produto > 0) ? $meta_produto : $margem_global;
+                            // Normaliza margem do produto
+                            $margem_padrao_produto = floatval(str_replace(',', '.', $p['margem_padrao'] ?? 0));
 
-                            // Classe visual com base na meta efetiva
+                            // Define a meta efetiva (produto > global)
+                            if ($margem_padrao_produto > 0) {
+                                $meta_efetiva = $margem_padrao_produto;
+                                $origem_meta = 'meta do produto';
+                            } else {
+                                $meta_efetiva = $margem_global;
+                                $origem_meta = 'meta global';
+                            }
+
+                            // Tolerância de 0.1% para evitar variações de arredondamento
+                            if (abs($margem_atual - $meta_efetiva) < 0.1) {
+                                $margem_atual = $meta_efetiva;
+                            }
+
+                            // Define cor conforme comparação
                             if ($margem_atual < 0) {
                                 $cls = 'text-danger';
-                            } elseif ($margem_atual < $meta_efetiva) {
+                            } elseif ($margem_atual + 0.05 < $meta_efetiva) { 
                                 $cls = 'text-warning';
                             } else {
                                 $cls = 'text-success';
                             }
 
-                            // Tooltip informando a meta usada (produto ou global)
-                            $origem_meta = ($meta_produto > 0) ? 'meta do produto' : 'meta global';
-                            $title_meta  = 'Meta: ' . number_format($meta_efetiva, 1, ',', '.') . '% (' . $origem_meta . ')';
+                            $title_meta = 'Meta: ' . number_format($meta_efetiva, 1, ',', '.') . '% (' . $origem_meta . ')';
+                            $margem_exibicao = number_format($margem_atual, 1, ',', '.');
 
-                            // Estoque
+                            // ==========================
+                            // ESTOQUE
+                            // ==========================
                             $baixo = $p['estoque_minimo'] > 0 && $p['estoque_atual'] < $p['estoque_minimo'];
                             $estoque = ($un === 'KG')
                                 ? number_format($p['estoque_atual'], 3, ',', '.') . ' kg'
@@ -177,7 +192,9 @@ $erro = isset($_GET['erro']);
                                 ? number_format($p['estoque_minimo'], 3, ',', '.') . ' kg'
                                 : number_format($p['estoque_minimo'], 0, ',', '.') . ' un';
 
-                            // Verifica vínculos
+                            // ==========================
+                            // VÍNCULOS
+                            // ==========================
                             $stmtVenda = $conn->prepare("SELECT COUNT(*) FROM vendas_itens WHERE produto_id = ?");
                             $stmtVenda->execute([$p['id']]);
                             $usadoVenda = $stmtVenda->fetchColumn();
@@ -203,7 +220,7 @@ $erro = isset($_GET['erro']);
                                 <td>R$ <?= number_format($p['preco_custo'], 2, ',', '.') ?></td>
                                 <td>R$ <?= number_format($p['preco_venda'], 2, ',', '.') ?></td>
                                 <td class="<?= $cls ?> fw-semibold" title="<?= htmlspecialchars($title_meta) ?>">
-                                    <?= number_format($margem_atual, 1, ',', '.') ?>%
+                                    <?= $margem_exibicao ?>%
                                 </td>
                                 <td>
                                     <?= $estoque ?>
@@ -216,20 +233,16 @@ $erro = isset($_GET['erro']);
                                     </span>
                                 </td>
                                 <td>
-                                    <a href="editar.php?id=<?= $p['id'] ?>" 
-                                       class="btn btn-sm btn-outline-primary" title="Editar produto">
+                                    <a href="editar.php?id=<?= $p['id'] ?>" class="btn btn-sm btn-outline-primary" title="Editar produto">
                                         <i class="bi bi-pencil"></i>
                                     </a>
                                     <?php if ($temVinculo): ?>
-                                        <button class="btn btn-sm btn-outline-secondary" 
-                                                title="Produto com vínculos — não pode ser excluído" disabled>
+                                        <button class="btn btn-sm btn-outline-secondary" title="Produto com vínculos — não pode ser excluído" disabled>
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     <?php else: ?>
-                                        <a href="excluir.php?id=<?= $p['id'] ?>" 
-                                           class="btn btn-sm btn-outline-danger" 
-                                           title="Excluir definitivamente" 
-                                           onclick="return confirm('Deseja realmente excluir este produto?')">
+                                        <a href="excluir.php?id=<?= $p['id'] ?>" class="btn btn-sm btn-outline-danger" 
+                                           title="Excluir definitivamente" onclick="return confirm('Deseja realmente excluir este produto?')">
                                             <i class="bi bi-trash"></i>
                                         </a>
                                     <?php endif; ?>

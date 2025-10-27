@@ -12,6 +12,17 @@ try {
 
     if ($id <= 0) throw new Exception('ID inválido.');
 
+    // Impede desativar ou excluir a si mesmo
+    if ($id == $_SESSION['usuario']['id']) {
+        throw new Exception('Você não pode desativar ou excluir a si mesmo.');
+    }
+
+    // Verifica se é o último usuário ativo
+    $totalAtivos = $conn->query("SELECT COUNT(*) FROM usuarios WHERE ativo=1")->fetchColumn();
+    if ($totalAtivos <= 1) {
+        throw new Exception('Não é possível desativar o último usuário ativo do sistema.');
+    }
+
     if ($acao === 'excluir') {
         // Exclusão definitiva
         $stmt = $conn->prepare("DELETE FROM usuarios WHERE id=?");
@@ -31,3 +42,4 @@ try {
     header("Location: index.php?erro=1&msg=" . urlencode($e->getMessage()));
     exit;
 }
+?>

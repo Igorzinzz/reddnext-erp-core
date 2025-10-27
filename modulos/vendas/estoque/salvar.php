@@ -6,9 +6,9 @@ try {
     $id = intval($_POST['id'] ?? 0);
     $nome = trim($_POST['nome'] ?? '');
     $codigo_ean = trim($_POST['codigo_ean'] ?? '');
-    $preco_custo = floatval($_POST['preco_custo'] ?? 0);
-    $preco_venda = floatval($_POST['preco_venda'] ?? 0);
-    $margem_padrao = floatval($_POST['margem_padrao'] ?? 30);
+    $preco_custo = floatval(str_replace(',', '.', $_POST['preco_custo'] ?? 0));
+    $preco_venda = floatval(str_replace(',', '.', $_POST['preco_venda'] ?? 0));
+    $margem_padrao = floatval(str_replace(',', '.', $_POST['margem_padrao'] ?? 30));
     $tipo_unidade = strtoupper(trim($_POST['tipo_unidade'] ?? 'UN'));
     $peso_variavel = isset($_POST['peso_variavel']) ? 1 : 0;
     $ativo = isset($_POST['ativo']) ? 1 : 0;
@@ -16,12 +16,21 @@ try {
     $imagem_url = null;
 
     // ==========================
+    // Normalizações e ajustes automáticos
+    // ==========================
+    if (!in_array($tipo_unidade, ['UN', 'KG'])) $tipo_unidade = 'UN';
+    if ($tipo_unidade === 'KG') $peso_variavel = 1; // sincroniza automaticamente
+
+    $preco_custo = round($preco_custo, 2);
+    $preco_venda = round($preco_venda, 2);
+    $margem_padrao = round($margem_padrao, 2);
+    if ($margem_padrao < 0) $margem_padrao = 0;
+
+    // ==========================
     // Validação básica
     // ==========================
     if (empty($nome)) throw new Exception("O nome do produto é obrigatório.");
     if ($preco_venda <= 0) throw new Exception("O preço de venda deve ser maior que zero.");
-    if (!in_array($tipo_unidade, ['UN', 'KG'])) $tipo_unidade = 'UN';
-    if ($margem_padrao < 0) $margem_padrao = 0;
 
     // Estoques com tratamento de unidade
     $estoque_atual = floatval($_POST['estoque_atual'] ?? 0);

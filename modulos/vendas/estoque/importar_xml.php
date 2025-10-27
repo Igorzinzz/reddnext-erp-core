@@ -22,7 +22,7 @@ try {
     // Configuração global de margem
     // ==========================
     $config = $conn->query("SELECT margem_padrao FROM config_sistema LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-    $margem_global = floatval($config['margem_padrao'] ?? 30);
+    $margem_global = floatval(str_replace(',', '.', $config['margem_padrao'] ?? '30'));
 
     // ==========================
     // Dados principais da NF
@@ -83,6 +83,10 @@ try {
 
         if (!$nome || $qtd <= 0) continue;
 
+        // Unidade comercial (detecta KG / UN)
+        $unidade = strtoupper(trim((string)$p->uCom));
+        if (!in_array($unidade, ['UN', 'KG'])) $unidade = 'UN';
+
         // Rateio proporcional
         $prop = ($totalProdutos > 0) ? ($total_item / $totalProdutos) : 0;
         $frete = $freteTotal * $prop;
@@ -94,40 +98,46 @@ try {
         $custo_unit = $preco + (($frete + $seg + $outros - $desc) / max(1, $qtd));
 
         // Busca produto existente
-        $stmtFind = $conn->prepare("SELECT id, margem_padrao FROM vendas_estoque WHERE codigo_ean = ? OR nome = ? LIMIT 1");
+        $stmtFind = $conn->prepare("SELECT id, margem_padrao, preco_custo, estoque_atual FROM vendas_estoque WHERE codigo_ean = ? OR nome = ? LIMIT 1");
         $stmtFind->execute([$ean, $nome]);
         $prodExist = $stmtFind->fetch(PDO::FETCH_ASSOC);
         $produto_id = $prodExist['id'] ?? null;
 
-        // Define margem efetiva (produto > global)
+        // Margem efetiva (normalizada)
         $margem_efetiva = isset($prodExist['margem_padrao']) && $prodExist['margem_padrao'] > 0 
-            ? floatval($prodExist['margem_padrao']) 
-            : $margem_global;
+            ? floatval(str_replace(',', '.', $prodExist['margem_padrao'])) 
+            : floatval(str_replace(',', '.', $margem_global));
 
-        // Calcula preço sugerido com base na margem efetiva
+        // Preço sugerido com base na margem efetiva
         $preco_sugerido = round($custo_unit * (1 + ($margem_efetiva / 100)), 2);
 
         if ($produto_id) {
-            // Produto já existe
+            // Produto já existe → aplica custo médio ponderado
+            $estoque_antigo = floatval($prodExist['estoque_atual'] ?? 0);
+            $custo_antigo = floatval($prodExist['preco_custo'] ?? 0);
+            $custo_medio = ($estoque_antigo + $qtd > 0)
+                ? ((($custo_antigo * $estoque_antigo) + ($custo_unit * $qtd)) / ($estoque_antigo + $qtd))
+                : $custo_unit;
+
             if ($atualizar_precos) {
-                // Atualiza tudo e zera sugerido
                 $conn->prepare("
                     UPDATE vendas_estoque 
                     SET estoque_atual = COALESCE(estoque_atual,0) + ?, 
-                        preco_custo = ?,
-                        preco_venda = ?,
-                        preco_sugerido = NULL
+                        preco_custo = ?, 
+                        preco_venda = ?, 
+                        preco_sugerido = NULL, 
+                        tipo_unidade = ?
                     WHERE id = ?
-                ")->execute([$qtd, $custo_unit, $preco_sugerido, $produto_id]);
+                ")->execute([$qtd, $custo_medio, round($custo_medio * (1 + ($margem_efetiva / 100)), 2), $unidade, $produto_id]);
             } else {
-                // Apenas sugere novo preço
                 $conn->prepare("
                     UPDATE vendas_estoque 
                     SET estoque_atual = COALESCE(estoque_atual,0) + ?, 
-                        preco_custo = ?,
-                        preco_sugerido = ?
+                        preco_custo = ?, 
+                        preco_sugerido = ?, 
+                        tipo_unidade = ?
                     WHERE id = ?
-                ")->execute([$qtd, $custo_unit, $preco_sugerido, $produto_id]);
+                ")->execute([$qtd, $custo_medio, round($custo_medio * (1 + ($margem_efetiva / 100)), 2), $unidade, $produto_id]);
             }
         } else {
             // Novo produto
@@ -135,14 +145,14 @@ try {
                 $conn->prepare("
                     INSERT INTO vendas_estoque 
                         (nome, codigo_ean, preco_custo, preco_venda, preco_sugerido, estoque_atual, tipo_unidade, ativo, margem_padrao)
-                    VALUES (?, ?, ?, ?, NULL, ?, 'UN', 1, ?)
-                ")->execute([$nome, $ean ?: $codigo, $custo_unit, $preco_sugerido, $qtd, $margem_efetiva]);
+                    VALUES (?, ?, ?, ?, NULL, ?, ?, 1, ?)
+                ")->execute([$nome, $ean ?: $codigo, $custo_unit, $preco_sugerido, $qtd, $unidade, $margem_efetiva]);
             } else {
                 $conn->prepare("
                     INSERT INTO vendas_estoque 
                         (nome, codigo_ean, preco_custo, preco_venda, preco_sugerido, estoque_atual, tipo_unidade, ativo, margem_padrao)
-                    VALUES (?, ?, ?, ?, ?, ?, 'UN', 1, ?)
-                ")->execute([$nome, $ean ?: $codigo, $custo_unit, $custo_unit, $preco_sugerido, $qtd, $margem_efetiva]);
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
+                ")->execute([$nome, $ean ?: $codigo, $custo_unit, $custo_unit, $preco_sugerido, $qtd, $unidade, $margem_efetiva]);
             }
 
             $produto_id = $conn->lastInsertId();
@@ -167,8 +177,8 @@ try {
         $msg = "NF-e importada com sucesso ({$importados} itens). Existem {$pendentes} produto(s) aguardando revisão de preço.";
     } else {
         $msg = $atualizar_precos
-            ? "NF-e importada com sucesso ({$importados} itens atualizados automaticamente com margem aplicada)."
-            : "NF-e importada com sucesso ({$importados} itens).";
+            ? "NF-e importada com sucesso ({$importados} itens atualizados automaticamente com margem aplicada e custo médio recalculado)."
+            : "NF-e importada com sucesso ({$importados} itens com custo médio atualizado).";
     }
 
     header("Location: index.php?ok=1&msg=" . urlencode($msg));
