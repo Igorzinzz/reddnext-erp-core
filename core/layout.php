@@ -87,7 +87,7 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
     border-right: 1px solid #e0e0e0;
     width: 250px;
     min-height: 100vh;
-    height: 100vh; /* impede o "salto" do menu */
+    height: 100vh;
     transition: width 0.3s ease;
     overflow-y: auto;
     overflow-x: hidden;
@@ -109,7 +109,7 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
     #sidebar a:hover {
         background-color: #dc3545;
         color: #fff !important;
-        transform: translateX(10px); /* 👈 efeito firme, sem mudar o layout */
+        transform: translateX(10px);
         transition: transform 0.25s ease, background-color 0.25s ease;
     }
     
@@ -205,7 +205,14 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
     <!-- Sidebar -->
     <nav id="sidebar">
         <div class="sidebar-header text-center py-4 border-bottom">
-            <h4 class="fw-bold text-danger mb-0">Reddnext ERP</h4>
+
+            <!-- 🔹 Logo padrão -->
+            <div class="mb-2">
+                <img src="/assets/img/logo.png" 
+                     alt="Logo do Sistema" 
+                     style="max-width:140px; height:auto;">
+            </div>
+
             <small class="text-muted d-block">
                 <?= htmlspecialchars($versaoSistema) ?><br>
                 <span style="font-size:11px;">Atualizado em <?= htmlspecialchars($dataVersao) ?></span>
@@ -287,7 +294,6 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
                            <i class="bi bi-box-seam me-2"></i> Estoque
                         </a>
                     </li>
-                    <!-- 🆕 ORÇAMENTOS -->
                     <li>
                         <a href="<?= $config['base_url'] ?>vendas/orcamentos/"
                            class="<?= str_contains($current, '/vendas/orcamentos/') ? 'active' : '' ?>">
@@ -297,7 +303,6 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
                 </ul>
             </li>
 
-
             <!-- USUÁRIOS -->
             <li class="mt-2">
                 <a href="<?= $config['base_url'] ?>usuarios/"
@@ -306,7 +311,7 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
                 </a>
             </li>
 
-            <!-- CONFIGURAÇÕES (sempre no final) -->
+            <!-- CONFIGURAÇÕES -->
             <hr class="my-3">
             <li>
                 <a href="<?= $config['base_url'] ?>configuracoes/"
@@ -378,26 +383,19 @@ function endContent() { echo '</main>'; include __DIR__ . '/footer.php'; }
         <?php startContent(); ?>
 
 <script>
-// ===============================
-// Corrige recolhimento dos submenus
-// (mantendo sua marcação original)
-// ===============================
 document.querySelectorAll('.toggle-arrow').forEach(icon => {
     const targetSel = icon.getAttribute('data-bs-target');
     const target = document.querySelector(targetSel);
     if (!target) return;
 
-    // Garante instância do Collapse
     const collapse = bootstrap.Collapse.getOrCreateInstance(target, { toggle: false });
 
-    // Clique só na setinha: abre/fecha sem navegar
     icon.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         collapse.toggle();
     });
 
-    // Sincroniza rotação da seta com o estado do collapse
     target.addEventListener('shown.bs.collapse', () => icon.classList.add('rotate'));
     target.addEventListener('hidden.bs.collapse', () => icon.classList.remove('rotate'));
 });

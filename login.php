@@ -35,19 +35,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Login - Reddnext ERP</title>
+    <title>Login</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="d-flex justify-content-center align-items-center vh-100 bg-light">
-    <div class="card p-4 shadow-sm" style="max-width: 380px; width: 100%;">
-        <h4 class="text-center text-danger fw-bold mb-3">Reddnext ERP</h4>
+    <div class="card p-4 shadow-sm text-center" style="max-width: 380px; width: 100%;">
+        
+        <!-- 🔹 Logo padrão -->
+        <div class="mb-3">
+            <img src="/assets/img/logo.png" 
+                 alt="Logo do Sistema" 
+                 style="max-width:150px; height:auto;">
+        </div>
 
         <?php if (!empty($erro)): ?>
-            <p class="text-danger text-center"><?= htmlspecialchars($erro) ?></p>
+            <p class="text-danger"><?= htmlspecialchars($erro) ?></p>
         <?php endif; ?>
 
-        <form method="POST" autocomplete="off">
+        <form method="POST" autocomplete="off" class="text-start">
             <div class="mb-3">
                 <label>Email</label>
                 <input type="email" name="email" class="form-control" required autofocus>

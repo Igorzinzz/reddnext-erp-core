@@ -4,6 +4,11 @@ include '../../core/auth.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
+// Mostrar erros (para debug, pode remover depois)
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 $DEBITAR_ESTOQUE = true;
 $STATUS_PADRAO   = 'pago';
 
@@ -98,9 +103,11 @@ function finalize_sale(PDO $conn, array $json, bool $debitar, string $status): v
     $obs         = trim($json['observacoes'] ?? '');
     $itens       = $json['itens'] ?? [];
 
-    // Ajuste unificado (desconto ou acréscimo)
-    $ajuste_valor = (float)($json['ajuste_valor'] ?? 0);
-    $ajuste_tipo  = trim($json['ajuste_tipo'] ?? 'desconto');
+    // ===============================
+    // Desconto em R$ ou %
+    // ===============================
+    $desconto_valor = (float)($json['desconto_valor'] ?? 0);
+    $tipo_desconto  = trim($json['tipo_desconto'] ?? 'R$'); // % ou R$
 
     if (empty($itens)) {
         echo json_encode(['ok' => false, 'msg' => 'Carrinho vazio.']);
@@ -121,7 +128,7 @@ function finalize_sale(PDO $conn, array $json, bool $debitar, string $status): v
         }
     }
 
-    // Calcula total
+    // Calcula total bruto
     $total = 0;
     foreach ($itens as $i) {
         $q = (float)($i['qtd'] ?? 0);
@@ -133,32 +140,38 @@ function finalize_sale(PDO $conn, array $json, bool $debitar, string $status): v
         return;
     }
 
-    // Aplica ajuste
-    $total_final = $ajuste_tipo === 'acrescimo'
-        ? $total + $ajuste_valor
-        : max(0, $total - $ajuste_valor);
+    // Calcula desconto
+    if ($tipo_desconto === '%') {
+        $valor_desconto = $total * ($desconto_valor / 100);
+    } else {
+        $valor_desconto = $desconto_valor;
+    }
 
+    $total_final = max(0, $total - $valor_desconto);
+
+    // ===============================
     // Transação
+    // ===============================
     $conn->beginTransaction();
     try {
         // Cria venda
         $stmt = $conn->prepare("
             INSERT INTO vendas 
-            (cliente_id, data_venda, valor_total, desconto, acrescimo, forma_pagamento, status, criado_em, observacoes)
+            (cliente_id, data_venda, valor_total, desconto, tipo_desconto, forma_pagamento, status, criado_em, observacoes)
             VALUES (?, NOW(), ?, ?, ?, ?, ?, NOW(), ?)
         ");
         $stmt->execute([
             $clienteId,
             $total_final,
-            $ajuste_tipo === 'desconto' ? $ajuste_valor : 0,
-            $ajuste_tipo === 'acrescimo' ? $ajuste_valor : 0,
+            $desconto_valor,
+            $tipo_desconto,
             $forma,
             $status,
             $obs
         ]);
         $vendaId = (int)$conn->lastInsertId();
 
-        // Itens
+        // Itens da venda
         $stmtItem = $conn->prepare("
             INSERT INTO vendas_itens (venda_id, produto_id, quantidade, valor_unitario)
             VALUES (?, ?, ?, ?)
@@ -186,7 +199,6 @@ function finalize_sale(PDO $conn, array $json, bool $debitar, string $status): v
         $clienteNomeFinal = $clienteNome ?: 'Cliente não identificado';
         $descricao = "Venda #{$vendaId} - {$clienteNomeFinal}";
 
-        // Verifica se já existe lançamento (raro, mas evita duplicidade)
         $stmtCheck = $conn->prepare("SELECT id FROM financeiro WHERE referencia_tipo = 'venda' AND referencia_id = ?");
         $stmtCheck->execute([$vendaId]);
         $idFin = $stmtCheck->fetchColumn();

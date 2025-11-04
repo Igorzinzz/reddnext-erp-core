@@ -9,9 +9,17 @@ $id = intval($_GET['id'] ?? 0);
 if ($id <= 0) die('Orçamento inválido.');
 
 // =========================
-// Buscar dados do orçamento
+// Buscar dados do orçamento (com JOIN no cliente)
 // =========================
-$stmt = $conn->prepare("SELECT * FROM vendas_orcamentos WHERE id = ?");
+$stmt = $conn->prepare("
+    SELECT 
+        o.*, 
+        c.nome AS cliente_nome, 
+        c.telefone AS cliente_telefone
+    FROM vendas_orcamentos o
+    LEFT JOIN clientes c ON c.id = o.cliente_id
+    WHERE o.id = ?
+");
 $stmt->execute([$id]);
 $orc = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$orc) die('Orçamento não encontrado.');
@@ -83,7 +91,7 @@ body {
     margin-bottom: 20px;
 }
 .header img {
-    max-height: 100px; /* aumento da logo */
+    max-height: 100px;
     width: auto;
 }
 h2 {
@@ -136,10 +144,12 @@ h2 {
 </div>
 
 <h3>Orçamento #<?= $id ?></h3>
-<p><strong>Cliente:</strong> <?= htmlspecialchars($orc['cliente_nome']) ?><br>
-<strong>Telefone:</strong> <?= htmlspecialchars($orc['cliente_telefone']) ?><br>
-<strong>Validade:</strong> <?= $orc['validade'] ? date('d/m/Y', strtotime($orc['validade'])) : '-' ?><br>
-<strong>Data de Emissão:</strong> <?= $dataEmissao ?></p>
+<p>
+    <strong>Cliente:</strong> <?= htmlspecialchars($orc['cliente_nome']) ?><br>
+    <strong>Telefone:</strong> <?= htmlspecialchars($orc['cliente_telefone'] ?? '-') ?><br>
+    <strong>Validade:</strong> <?= $orc['validade'] ? date('d/m/Y', strtotime($orc['validade'])) : '-' ?><br>
+    <strong>Data de Emissão:</strong> <?= $dataEmissao ?>
+</p>
 
 <table class="table">
     <thead>
@@ -166,7 +176,12 @@ h2 {
 
 <div class="totais">
     <?php if ($orc['desconto'] > 0): ?>
-        <p>Desconto aplicado: <strong><?= number_format($orc['desconto'], 2, ',', '.') ?>%</strong></p>
+        <p>Desconto aplicado: 
+            <strong>
+                <?= number_format($orc['desconto'], 2, ',', '.') ?>
+                <?= htmlspecialchars($orc['tipo_desconto'] ?? '%') ?>
+            </strong>
+        </p>
     <?php endif; ?>
     <h3>Total: R$ <?= number_format($orc['total'], 2, ',', '.') ?></h3>
 </div>

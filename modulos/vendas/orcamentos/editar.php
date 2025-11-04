@@ -7,10 +7,15 @@ startContent();
 $id = intval($_GET['id'] ?? 0);
 
 // ==========================
-// Carrega orçamento existente (se houver)
+// Carrega orçamento existente (com cliente JOIN)
 // ==========================
 if ($id > 0) {
-    $stmt = $conn->prepare("SELECT * FROM vendas_orcamentos WHERE id = ?");
+    $stmt = $conn->prepare("
+        SELECT o.*, c.nome AS cliente_nome
+        FROM vendas_orcamentos o
+        LEFT JOIN clientes c ON c.id = o.cliente_id
+        WHERE o.id = ?
+    ");
     $stmt->execute([$id]);
     $orcamento = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -29,10 +34,11 @@ if ($id > 0) {
     $itens = $stmtItens->fetchAll(PDO::FETCH_ASSOC);
 } else {
     $orcamento = [
+        'cliente_id' => '',
         'cliente_nome' => '',
-        'cliente_telefone' => '',
         'validade' => date('Y-m-d', strtotime('+7 days')),
         'desconto' => 0,
+        'tipo_desconto' => '%',
         'observacoes' => '',
         'total' => 0
     ];
@@ -54,28 +60,36 @@ if ($id > 0) {
         <input type="hidden" name="id" value="<?= $id ?>">
 
         <div class="row g-4 mb-4">
-            <div class="col-md-5">
+            <!-- CLIENTE -->
+            <div class="col-md-6">
                 <label class="form-label fw-semibold"><i class="bi bi-person me-1"></i>Cliente</label>
-                <input type="text" name="cliente_nome" class="form-control" placeholder="Nome do cliente" required
-                       value="<?= htmlspecialchars($orcamento['cliente_nome']) ?>">
+                <select name="cliente_id" id="clienteSelect" class="form-select" required>
+                    <?php if (!empty($orcamento['cliente_id'])): ?>
+                        <option value="<?= $orcamento['cliente_id'] ?>" selected>
+                            <?= htmlspecialchars($orcamento['cliente_nome']) ?>
+                        </option>
+                    <?php endif; ?>
+                </select>
             </div>
 
             <div class="col-md-3">
-                <label class="form-label fw-semibold"><i class="bi bi-telephone me-1"></i>Telefone</label>
-                <input type="text" name="cliente_telefone" class="form-control" placeholder="(00) 00000-0000"
-                       value="<?= htmlspecialchars($orcamento['cliente_telefone']) ?>">
-            </div>
-
-            <div class="col-md-2">
                 <label class="form-label fw-semibold"><i class="bi bi-calendar me-1"></i>Validade</label>
                 <input type="date" name="validade" class="form-control"
                        value="<?= htmlspecialchars($orcamento['validade']) ?>">
             </div>
 
-            <div class="col-md-2">
-                <label class="form-label fw-semibold"><i class="bi bi-percent me-1"></i>Desconto (%)</label>
-                <input type="number" step="0.01" min="0" max="100" name="desconto" id="desconto" class="form-control text-end"
-                       value="<?= htmlspecialchars($orcamento['desconto']) ?>">
+            <!-- DESCONTO -->
+            <div class="col-md-3">
+                <label class="form-label fw-semibold"><i class="bi bi-tag me-1"></i>Desconto</label>
+                <div class="input-group">
+                    <input type="number" step="0.01" min="0" name="desconto" id="desconto"
+                           class="form-control text-end"
+                           value="<?= htmlspecialchars($orcamento['desconto']) ?>">
+                    <select name="tipo_desconto" id="tipoDesconto" class="form-select" style="max-width:80px;">
+                        <option value="%" <?= ($orcamento['tipo_desconto'] ?? '%') === '%' ? 'selected' : '' ?>>%</option>
+                        <option value="R$" <?= ($orcamento['tipo_desconto'] ?? '') === 'R$' ? 'selected' : '' ?>>R$</option>
+                    </select>
+                </div>
             </div>
         </div>
 
@@ -152,7 +166,23 @@ if ($id > 0) {
 $(document).ready(function(){
     const container = $("#itensContainer");
 
-    // === ATIVAR SELECT2 ===
+    // === CLIENTE (Select2) ===
+    $('#clienteSelect').select2({
+        placeholder: "Selecione um cliente...",
+        ajax: {
+            url: "../clientes/buscar.php",
+            dataType: 'json',
+            delay: 250,
+            data: params => ({ term: params.term }),
+            processResults: data => ({ results: data }),
+            cache: true
+        },
+        theme: "bootstrap4",
+        width: '100%',
+        minimumInputLength: 2
+    });
+
+    // === PRODUTOS (Select2) ===
     function ativarSelect2Produtos(){
         $('.produtoSelect').select2({
             placeholder: "Digite o nome do produto...",
@@ -216,16 +246,27 @@ $(document).ready(function(){
             const qtd = parseFloat($(this).find(".qtdInput").val()) || 0;
             const valor = parseFloat($(this).find(".valorInput").val()) || 0;
             const subtotal = qtd * valor;
-            $(this).find(".subtotal").val(subtotal.toFixed(2).replace('.',','));
+            $(this).find(".subtotal").val(formatarValor(subtotal));
             total += subtotal;
         });
+
         const desconto = parseFloat($("#desconto").val()) || 0;
-        if(desconto > 0) total -= (total * desconto / 100);
-        $("#totalGeral").text(total.toFixed(2).replace('.',','));
+        const tipo = $("#tipoDesconto").val();
+
+        if (desconto > 0) {
+            if (tipo === "%") total -= (total * desconto / 100);
+            else total -= desconto;
+        }
+
+        $("#totalGeral").text(formatarValor(total));
+    }
+
+    function formatarValor(valor) {
+        return valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     container.on("input", ".qtdInput, .valorInput", atualizarTotais);
-    $("#desconto").on("input", atualizarTotais);
+    $("#desconto, #tipoDesconto").on("input change", atualizarTotais);
     atualizarTotais();
 });
 </script>

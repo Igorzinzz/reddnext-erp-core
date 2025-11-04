@@ -28,25 +28,16 @@ try {
     }
 
     // ==========================
-    // Restaurar estoque dos itens
+    // NÃO restaurar estoque (já devolvido no cancelamento)
     // ==========================
-    $stmtItens = $conn->prepare("SELECT produto_id, quantidade FROM vendas_itens WHERE venda_id = ?");
-    $stmtItens->execute([$id]);
-    $itens = $stmtItens->fetchAll(PDO::FETCH_ASSOC);
-
-    foreach ($itens as $item) {
-        $stmtEstoque = $conn->prepare("
-            UPDATE vendas_estoque 
-            SET estoque_atual = estoque_atual + ?
-            WHERE id = ?
-        ");
-        $stmtEstoque->execute([$item['quantidade'], $item['produto_id']]);
-    }
 
     // ==========================
     // Excluir lançamentos financeiros relacionados
     // ==========================
-    $stmtFinanceiro = $conn->prepare("DELETE FROM financeiro WHERE referencia_tipo = 'venda' AND referencia_id = ?");
+    $stmtFinanceiro = $conn->prepare("
+        DELETE FROM financeiro 
+        WHERE referencia_tipo = 'venda' AND referencia_id = ?
+    ");
     $stmtFinanceiro->execute([$id]);
 
     // ==========================

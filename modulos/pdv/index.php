@@ -124,14 +124,14 @@ startContent();
             <div class="mt-1 small text-success fw-semibold">Troco: <span id="trocoValor">R$ 0,00</span></div>
           </div>
 
+          <!-- DESCONTO -->
           <div class="col-md-6">
-            <label class="form-label fw-semibold">Desconto / Acréscimo</label>
+            <label class="form-label fw-semibold">Desconto</label>
             <div class="input-group">
-              <span class="input-group-text">R$</span>
-              <input type="number" id="ajusteValor" class="form-control" value="0" step="0.01">
-              <select id="tipoAjuste" class="form-select">
-                <option value="desconto">Desconto</option>
-                <option value="acrescimo">Acréscimo</option>
+              <input type="number" id="ajusteValor" class="form-control text-end" value="0" step="0.01" min="0">
+              <select id="tipoSimbolo" class="form-select" style="max-width:80px;">
+                <option value="%">%</option>
+                <option value="R$">R$</option>
               </select>
             </div>
           </div>

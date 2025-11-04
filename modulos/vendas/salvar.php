@@ -10,9 +10,9 @@ try {
     $data_venda = $_POST['data_venda'] ?? date('Y-m-d');
     $forma_pagamento = trim($_POST['forma_pagamento'] ?? '');
     $status = $_POST['status'] ?? 'pendente';
-    $ajuste_tipo = $_POST['ajuste_tipo'] ?? 'desconto';
-    $ajuste_valor = floatval($_POST['ajuste_valor'] ?? 0);
-    $valor_total = 0.0;
+    $desconto = floatval($_POST['desconto'] ?? 0);
+    $tipo_desconto = $_POST['tipo_desconto'] ?? 'R$';
+    $observacoes = trim($_POST['observacoes'] ?? '');
     $produtos = $_POST['produtos'] ?? [];
 
     // ==========================
@@ -58,25 +58,22 @@ try {
         $stmt = $conn->prepare("
             UPDATE vendas 
             SET cliente_id = ?, data_venda = ?, forma_pagamento = ?, status = ?,
-                desconto = ?, acrescimo = ?
+                desconto = ?, tipo_desconto = ?, observacoes = ?
             WHERE id = ?
         ");
         $stmt->execute([
             $cliente_id, $data_venda, $forma_pagamento, $status,
-            $ajuste_tipo === 'desconto' ? $ajuste_valor : 0,
-            $ajuste_tipo === 'acrescimo' ? $ajuste_valor : 0,
-            $id
+            $desconto, $tipo_desconto, $observacoes, $id
         ]);
     } else {
         $stmt = $conn->prepare("
             INSERT INTO vendas 
-            (cliente_id, data_venda, forma_pagamento, status, desconto, acrescimo, valor_total)
-            VALUES (?, ?, ?, ?, ?, ?, 0)
+            (cliente_id, data_venda, forma_pagamento, status, desconto, tipo_desconto, valor_total, observacoes, criado_em)
+            VALUES (?, ?, ?, ?, ?, ?, 0, ?, NOW())
         ");
         $stmt->execute([
             $cliente_id, $data_venda, $forma_pagamento, $status,
-            $ajuste_tipo === 'desconto' ? $ajuste_valor : 0,
-            $ajuste_tipo === 'acrescimo' ? $ajuste_valor : 0
+            $desconto, $tipo_desconto, $observacoes
         ]);
         $id = $conn->lastInsertId();
     }
@@ -89,9 +86,10 @@ try {
         VALUES (?, ?, ?, ?)
     ");
 
+    $valor_total = 0;
     foreach ($produtos as $item) {
         $produto_id = intval($item['id']);
-        $quantidade = round(floatval($item['qtd']), 3); // precisão 3 casas para KG
+        $quantidade = round(floatval($item['qtd']), 3);
         $valor = round(floatval($item['valor']), 2);
 
         if ($produto_id && $quantidade > 0 && $valor > 0) {
@@ -111,11 +109,17 @@ try {
     }
 
     // ==========================
-    // Aplica desconto ou acréscimo
+    // Aplica desconto (% ou R$)
     // ==========================
     $valor_final = $valor_total;
-    if ($ajuste_tipo === 'desconto') $valor_final -= $ajuste_valor;
-    if ($ajuste_tipo === 'acrescimo') $valor_final += $ajuste_valor;
+    if ($desconto > 0) {
+        if ($tipo_desconto === '%') {
+            $valor_final -= ($valor_total * ($desconto / 100));
+        } else {
+            $valor_final -= $desconto;
+        }
+    }
+
     if ($valor_final < 0) $valor_final = 0;
 
     // ==========================

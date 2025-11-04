@@ -20,20 +20,30 @@ $where = [];
 $params = [];
 
 if ($busca !== '') {
-    $where[] = "cliente_nome LIKE ?";
+    $where[] = "(c.nome LIKE ? OR c.telefone LIKE ?)";
+    $params[] = "%{$busca}%";
     $params[] = "%{$busca}%";
 }
 
 if ($periodo !== '') {
-    $where[] = "DATE_FORMAT(criado_em, '%Y-%m') = ?";
+    $where[] = "DATE_FORMAT(o.criado_em, '%Y-%m') = ?";
     $params[] = $periodo;
 }
 
-$sql = "SELECT * FROM vendas_orcamentos";
+// ==========================
+// Consulta principal com JOIN no cliente
+// ==========================
+$sql = "SELECT 
+            o.*, 
+            c.nome AS cliente_nome, 
+            c.telefone AS cliente_telefone
+        FROM vendas_orcamentos o
+        LEFT JOIN clientes c ON c.id = o.cliente_id";
+
 if ($where) {
     $sql .= " WHERE " . implode(" AND ", $where);
 }
-$sql .= " ORDER BY criado_em DESC";
+$sql .= " ORDER BY o.criado_em DESC";
 
 $stmt = $conn->prepare($sql);
 $stmt->execute($params);
@@ -63,8 +73,8 @@ $erro = isset($_GET['erro']);
     <form method="GET" class="card border-0 shadow-sm p-3 mb-4">
         <div class="row g-3 align-items-end">
             <div class="col-md-5">
-                <label class="form-label fw-semibold text-muted small mb-1">Cliente</label>
-                <input type="text" name="busca" class="form-control" placeholder="Nome do cliente..."
+                <label class="form-label fw-semibold text-muted small mb-1">Cliente ou Telefone</label>
+                <input type="text" name="busca" class="form-control" placeholder="Buscar cliente ou telefone..."
                        value="<?= htmlspecialchars($busca) ?>">
             </div>
             <div class="col-md-3">
@@ -115,8 +125,9 @@ $erro = isset($_GET['erro']);
                         <th>Validade</th>
                         <th>Total (R$)</th>
                         <th>Desconto</th>
+                        <th>Status</th>
                         <th>Criado em</th>
-                        <th width="180">Ações</th>
+                        <th width="200">Ações</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -132,17 +143,44 @@ $erro = isset($_GET['erro']);
                                     $data = date('d/m/Y H:i', strtotime($o['criado_em']));
                                 }
                             }
+
                             $validade = $o['validade'] ? date('d/m/Y', strtotime($o['validade'])) : '-';
+                            $status = $o['status'] ?? 'aberto';
+                            $badge = [
+                                'aberto' => 'bg-secondary',
+                                'convertido' => 'bg-success',
+                                'cancelado' => 'bg-danger'
+                            ][$status] ?? 'bg-secondary';
+
+                            // ==========================
+                            // Exibição formatada do desconto
+                            // ==========================
+                            $tipoDesc = $o['tipo_desconto'] ?? '%';
+                            if ($o['desconto'] > 0) {
+                                if ($tipoDesc === 'R$') {
+                                    $textoDesconto = 'R$ ' . number_format($o['desconto'], 2, ',', '.');
+                                } else {
+                                    $textoDesconto = number_format($o['desconto'], 2, ',', '.') . ' %';
+                                }
+                            } else {
+                                $textoDesconto = '-';
+                            }
+
+                            // Telefone vindo da tabela clientes
+                            $telefone = !empty($o['cliente_telefone'])
+                                ? htmlspecialchars($o['cliente_telefone'])
+                                : '<span class="text-muted">—</span>';
                         ?>
                             <tr>
                                 <td class="fw-semibold"><?= $o['id'] ?></td>
                                 <td><?= htmlspecialchars($o['cliente_nome']) ?></td>
-                                <td><?= htmlspecialchars($o['cliente_telefone']) ?></td>
+                                <td><?= $telefone ?></td>
                                 <td><?= $validade ?></td>
                                 <td>R$ <?= number_format($o['total'], 2, ',', '.') ?></td>
-                                <td><?= $o['desconto'] > 0 ? number_format($o['desconto'], 2, ',', '.') . '%' : '-' ?></td>
+                                <td><?= $textoDesconto ?></td>
+                                <td><span class="badge <?= $badge ?>"><?= ucfirst($status) ?></span></td>
                                 <td><?= $data ?></td>
-                                <td class="d-flex gap-1">
+                                <td class="d-flex gap-1 flex-wrap">
                                     <a href="editar.php?id=<?= $o['id'] ?>" class="btn btn-sm btn-outline-primary" title="Editar">
                                         <i class="bi bi-pencil"></i>
                                     </a>
@@ -150,15 +188,21 @@ $erro = isset($_GET['erro']);
                                         <i class="bi bi-file-earmark-pdf"></i>
                                     </a>
 
-                                    <!-- NOVO: botão modal “Gerar Venda” -->
-                                    <button type="button" class="btn btn-sm btn-outline-danger" title="Gerar Venda (em breve)"
-                                            data-bs-toggle="modal" data-bs-target="#modalEmBreve">
-                                        <i class="bi bi-cart-plus"></i>
-                                    </button>
+                                    <?php if ($status === 'aberto'): ?>
+                                        <a href="converter.php?id=<?= $o['id'] ?>"
+                                           onclick="return confirm('Converter este orçamento em venda?')"
+                                           class="btn btn-sm btn-outline-danger" title="Converter em Venda">
+                                           <i class="bi bi-cart-plus"></i>
+                                        </a>
+                                    <?php else: ?>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Já convertido" disabled>
+                                            <i class="bi bi-check-circle"></i>
+                                        </button>
+                                    <?php endif; ?>
 
                                     <a href="excluir.php?id=<?= $o['id'] ?>"
                                        onclick="return confirm('Deseja realmente excluir este orçamento?')"
-                                       class="btn btn-sm btn-outline-secondary" title="Excluir">
+                                       class="btn btn-sm btn-outline-danger" title="Excluir">
                                         <i class="bi bi-trash"></i>
                                     </a>
                                 </td>
@@ -166,7 +210,7 @@ $erro = isset($_GET['erro']);
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-4">
+                            <td colspan="9" class="text-center text-muted py-4">
                                 <i class="bi bi-info-circle me-2"></i>Nenhum orçamento encontrado.
                             </td>
                         </tr>
@@ -175,32 +219,6 @@ $erro = isset($_GET['erro']);
             </table>
         </div>
     </div>
-</div>
-
-<!-- MODAL EM BREVE -->
-<div class="modal fade" id="modalEmBreve" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content border-0 shadow-lg">
-      <div class="modal-header bg-danger text-white border-0">
-        <h5 class="modal-title fw-bold"><i class="bi bi-lightning-charge-fill me-2"></i>Em breve: Gerar Venda</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body text-center p-4">
-        <i class="bi bi-cart-plus text-danger display-4 mb-3"></i>
-        <h5 class="fw-bold mb-2">Conversão direta de Orçamento em Venda</h5>
-        <p class="text-muted mb-3">
-          Em breve você poderá transformar um orçamento em venda com apenas <strong>um clique</strong>!<br>
-          Estoque, totais e margens serão atualizados automaticamente.
-        </p>
-        <span class="badge bg-light text-dark border">🚧 Em desenvolvimento</span>
-      </div>
-      <div class="modal-footer bg-light border-0 d-flex justify-content-center">
-        <button type="button" class="btn btn-outline-danger px-4 fw-semibold" data-bs-dismiss="modal">
-          Entendido
-        </button>
-      </div>
-    </div>
-  </div>
 </div>
 
 <?php endContent(); ?>

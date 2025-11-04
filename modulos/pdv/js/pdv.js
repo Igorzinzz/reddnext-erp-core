@@ -292,15 +292,27 @@ el("#finalizarVenda")?.addEventListener("click", () => {
   atualizarTotaisModal();
 });
 
-["#ajusteValor","#valorRecebido","#forma_pagamento","#tipoAjuste"].forEach(sel => {
+// Atualização de totais do modal
+["#ajusteValor", "#valorRecebido", "#forma_pagamento", "#tipoSimbolo"].forEach(sel => {
   el(sel)?.addEventListener("input", atualizarTotaisModal);
   el(sel)?.addEventListener("change", atualizarTotaisModal);
 });
 
 function atualizarTotaisModal() {
   const valor = +el("#ajusteValor").value || 0;
-  const tipo = el("#tipoAjuste").value;
-  const totalFinal = Math.max(0, TOTAL + (tipo === "acrescimo" ? valor : -valor));
+  const simbolo = el("#tipoSimbolo")?.value || "R$"; // % ou R$
+  let totalFinal = TOTAL;
+
+  if (valor > 0) {
+    if (simbolo === "%") {
+      const desconto = TOTAL * (valor / 100);
+      totalFinal -= desconto;
+    } else {
+      totalFinal -= valor;
+    }
+  }
+
+  totalFinal = Math.max(0, totalFinal);
   el("#totalFinalModal").innerText = fmt(totalFinal);
 
   const recebido = +el("#valorRecebido").value || 0;
@@ -316,8 +328,8 @@ el("#formFinalizar")?.addEventListener("submit", (e) => {
     cliente: el("#cliente")?.value?.trim() || "",
     forma_pagamento: el("#forma_pagamento")?.value || "Dinheiro",
     observacoes: el("#observacoes")?.value || "",
-    ajuste_valor: +el("#ajusteValor").value || 0,
-    ajuste_tipo: el("#tipoAjuste")?.value || "desconto",
+    desconto_valor: +el("#ajusteValor").value || 0,
+    tipo_desconto: el("#tipoSimbolo")?.value || "R$",
     itens: CARRINHO.map(i => ({ produto_id: i.id, qtd: i.qtd, preco_unit: i.preco }))
   };
 

@@ -19,18 +19,69 @@ if ($id > 0) {
     $itens = $stmtItens->fetchAll(PDO::FETCH_ASSOC);
 } else {
     $venda = [
-        'cliente_id' => '',
-        'data_venda' => date('Y-m-d'),
-        'forma_pagamento' => '',
-        'status' => 'pendente',
-        'valor_total' => 0,
-        'desconto' => 0,
-        'acrescimo' => 0
+        'cliente_id'     => '',
+        'data_venda'     => date('Y-m-d'),
+        'forma_pagamento'=> '',
+        'status'         => 'pendente',
+        'valor_total'    => 0,
+        'desconto'       => 0,
+        'tipo_desconto'  => 'R$', // padrão
+        'acrescimo'      => 0,
+        'observacoes'    => ''
     ];
     $itens = [];
 }
-?>
 
+/**
+ * ============================
+ * Reconciliação de Desconto p/ Exibição
+ * - Corrige casos legados (percentual salvo como R$)
+ * - NUNCA altera banco aqui; só o valor exibido no input
+ * ============================
+ */
+$bruto = 0.0;
+foreach ($itens as $it) {
+    $q = (float)($it['quantidade'] ?? 0);
+    $v = (float)($it['valor_unitario'] ?? 0);
+    $bruto += $q * $v;
+}
+
+$tipoDesconto       = $venda['tipo_desconto'] ?? 'R$';
+$descontoSalvo      = (float)($venda['desconto'] ?? 0);
+$valorLiquidoSalvo  = (float)($venda['valor_total'] ?? 0);
+
+$descontoParaInput  = $descontoSalvo; // default
+$avisoAjuste        = '';             // mensagem de hint abaixo do campo
+
+if ($bruto > 0) {
+    // desconto em R$ inferido a partir do que está salvo como total líquido
+    $descontoReaisInferido = max($bruto - $valorLiquidoSalvo, 0);
+    $percentualInferido    = $bruto > 0 ? round((1 - ($valorLiquidoSalvo / $bruto)) * 100, 2) : 0;
+
+    if ($tipoDesconto === '%') {
+        // Se o campo salvo está em R$ (caso legado), ele não bate com o percentual inferido.
+        // Critério: diferença maior que 0.1 p.p. ou percentual salvo muito pequeno mas desconto em reais maior que zero.
+        if (abs($descontoSalvo - $percentualInferido) > 0.1) {
+            $descontoParaInput = $percentualInferido;
+            $avisoAjuste = 'Valor ajustado automaticamente a partir do total líquido.';
+        } else {
+            $descontoParaInput = $descontoSalvo; // ok
+        }
+    } else { // 'R$'
+        // Se for R$, mostramos em reais. Se houver divergência visível, preferimos o inferido para a UI.
+        if (abs($descontoSalvo - $descontoReaisInferido) > 0.01) {
+            $descontoParaInput = $descontoReaisInferido;
+            $avisoAjuste = 'Valor ajustado automaticamente a partir do total líquido.';
+        } else {
+            $descontoParaInput = $descontoSalvo;
+        }
+    }
+} else {
+    // Sem itens/bruto 0 — mantém o que está no banco
+    $descontoParaInput = $descontoSalvo;
+}
+
+?>
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4 class="fw-bold mb-0">
@@ -156,23 +207,35 @@ if ($id > 0) {
 
         <hr class="my-4">
 
-        <!-- Ajustes -->
+        <!-- DESCONTO -->
         <div class="row justify-content-end mb-3">
-            <div class="col-md-2">
-                <label class="form-label fw-semibold">Tipo de Ajuste</label>
-                <select name="ajuste_tipo" id="ajusteTipo" class="form-select">
-                    <option value="desconto" <?= ($venda['acrescimo'] <= 0) ? 'selected' : '' ?>>Desconto</option>
-                    <option value="acrescimo" <?= ($venda['acrescimo'] > 0) ? 'selected' : '' ?>>Acréscimo</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label class="form-label fw-semibold">Valor do Ajuste (R$)</label>
-                <input type="number" step="0.01" name="ajuste_valor" id="ajusteValor" class="form-control text-end"
-                       value="<?= number_format(max($venda['desconto'], $venda['acrescimo']), 2, '.', '') ?>">
+            <div class="col-md-3">
+                <label class="form-label fw-semibold"><i class="bi bi-tag me-1"></i>Desconto</label>
+                <div class="input-group">
+                    <input type="number" step="0.01" min="0"
+                           name="desconto" id="desconto"
+                           class="form-control text-end"
+                           value="<?= number_format($descontoParaInput, 2, '.', '') ?>">
+                    <select name="tipo_desconto" id="tipoDesconto" class="form-select" style="max-width:90px;">
+                        <option value="%" <?= $tipoDesconto=='%'?'selected':'' ?>>%</option>
+                        <option value="R$" <?= $tipoDesconto=='R$'?'selected':'' ?>>R$</option>
+                    </select>
+                </div>
+                <small class="text-muted" id="descLabel">
+                    <?php
+                    if (!empty($avisoAjuste)) {
+                        echo htmlspecialchars($avisoAjuste);
+                    } elseif ($descontoParaInput > 0) {
+                        echo $tipoDesconto === '%' 
+                             ? 'Desconto aplicado: ' . number_format($descontoParaInput, 2, ',', '.') . '%'
+                             : 'Desconto aplicado: R$ ' . number_format($descontoParaInput, 2, ',', '.');
+                    }
+                    ?>
+                </small>
             </div>
         </div>
 
-        <!-- Totais -->
+        <!-- Total -->
         <div class="row justify-content-end">
             <div class="col-md-3">
                 <label class="form-label fw-semibold">Valor Total</label>
@@ -180,6 +243,12 @@ if ($id > 0) {
                        class="form-control fw-bold text-danger text-end"
                        readonly value="<?= number_format($venda['valor_total'], 2, ',', '.') ?>">
             </div>
+        </div>
+
+        <!-- Observações -->
+        <div class="mt-4">
+            <label class="form-label fw-semibold">Observações</label>
+            <textarea name="observacoes" rows="3" class="form-control"><?= htmlspecialchars($venda['observacoes']) ?></textarea>
         </div>
 
         <div class="mt-4 text-end">
@@ -191,7 +260,7 @@ if ($id > 0) {
 </div>
 
 <script>
-$(document).ready(function() {
+$(function(){
     const container = $("#itensContainer");
 
     // === CLIENTE ===
@@ -231,15 +300,14 @@ $(document).ready(function() {
             const linha = $(this).closest('tr');
             const unidade = data.tipo_unidade || 'UN';
             linha.find('.unidadeBadge').text(unidade);
-            const inputQtd = linha.find('.qtdInput');
-            inputQtd.attr('step', unidade === 'KG' ? '0.001' : '1');
-            inputQtd.attr('min', unidade === 'KG' ? '0.001' : '1');
-            inputQtd.val(unidade === 'KG' ? '0.001' : '1');
+            const qtd = linha.find('.qtdInput');
+            qtd.attr('step', unidade === 'KG' ? '0.001' : '1');
+            qtd.attr('min', unidade === 'KG' ? '0.001' : '1');
+            qtd.val(unidade === 'KG' ? '0.001' : '1');
             linha.find('.valorInput').val(parseFloat(data.preco).toFixed(2));
             atualizarTotal();
         });
     }
-
     ativarSelect2Produtos();
 
     // === Adicionar item ===
@@ -267,7 +335,7 @@ $(document).ready(function() {
         atualizarTotal();
     });
 
-    // === Atualizar total ===
+    // === Atualizar total (UI) ===
     function atualizarTotal() {
         let total = 0;
         $(".item-linha").each(function() {
@@ -276,22 +344,27 @@ $(document).ready(function() {
             total += qtd * valor;
         });
 
-        const ajusteTipo = $("#ajusteTipo").val();
-        const ajusteValor = parseFloat($("#ajusteValor").val()) || 0;
+        const desconto = parseFloat($("#desconto").val()) || 0;
+        const tipo = $("#tipoDesconto").val();
 
-        if (ajusteTipo === 'desconto') total -= ajusteValor;
-        else total += ajusteValor;
+        let descValor = 0;
+        if (desconto > 0) {
+            if (tipo === "%") descValor = (total * desconto / 100);
+            else descValor = desconto;
+            total -= descValor;
+        }
 
         if (total < 0) total = 0;
 
-        $("#valorTotal").val(total.toLocaleString('pt-BR', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }));
+        $("#valorTotal").val(total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+        $("#descLabel").text(desconto > 0 ? `Desconto aplicado: ${tipo === '%' ? desconto.toFixed(2) + '%' : 'R$ ' + desconto.toFixed(2)}` : '');
     }
 
     container.on("input", ".qtdInput, .valorInput", atualizarTotal);
-    $("#ajusteValor, #ajusteTipo").on("input change", atualizarTotal);
+    $("#desconto, #tipoDesconto").on("input change", atualizarTotal);
+
+    // Inicializa cálculo coerente com o valor exibido
+    atualizarTotal();
 });
 </script>
 
