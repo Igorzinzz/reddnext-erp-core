@@ -33,7 +33,7 @@ echo $NEW_VERSION > $VERSION_FILE
 
 git add $VERSION_FILE
 git commit -m "Release v$NEW_VERSION"
-git tag "v$NEW_VERSION"
+git tag "$NEW_VERSION"
 
 git push origin main
 git push origin "v$NEW_VERSION"
