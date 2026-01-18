@@ -5,7 +5,28 @@ include '../../core/layout.php';
 startContent();
 ?>
 
-<div class="container-fluid p-0" style="height: calc(100vh - 60px); overflow: hidden;">
+<style>
+/* Esconder sidebar independente do markup (sem alterar layout.php) */
+aside, .sidebar, #sidebar, .menu-lateral, .nav-sidebar, .left-panel {
+  display: none !important;
+}
+
+/* Forçar o conteúdo principal a ocupar 100% da largura */
+.container-fluid, .main, .main-app, .content, .page-wrapper {
+  margin-left: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Ajustes para o PDV em full screen */
+.pdv-fullscreen { height: 100vh; overflow: hidden; }
+.pdv-scroll-area { height: calc(100vh - 60px); overflow: auto; }
+
+/* Corrige possíveis paddings/resizes ao esconder sidebar */
+.row.g-0.h-100 { height: 100%; }
+</style>
+
+<div class="container-fluid p-0 pdv-fullscreen" style="height: calc(100vh - 60px); overflow: hidden;">
 
     <!-- HEADER -->
     <div class="bg-white shadow-sm d-flex justify-content-between align-items-center px-4 py-3 border-bottom">
@@ -15,10 +36,12 @@ startContent();
         </div>
         <div class="d-flex align-items-center gap-3">
             <div class="text-muted small">
-                Operador: <strong><?= htmlspecialchars($_SESSION['usuario_nome']) ?></strong>
+                Operador: <strong><?= htmlspecialchars($_SESSION['usuario_nome'] ?? 'Desconhecido') ?></strong>
             </div>
             <div id="relogio" class="fw-semibold"></div>
-            <a href="../../painel.php" class="btn btn-sm btn-outline-secondary">
+
+            <!-- Voltar corrigido para a URL que você indicou -->
+            <a href="https://erp-core.reddnext.com.br/painel.php" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-arrow-left"></i> Voltar
             </a>
         </div>
@@ -26,7 +49,7 @@ startContent();
 
     <div class="row g-0 h-100">
         <!-- PRODUTOS -->
-        <div class="col-lg-8 col-md-7 col-sm-12 border-end h-100 d-flex flex-column bg-light">
+        <div class="col-lg-8 col-md-7 col-sm-12 border-end h-100 d-flex flex-column bg-light pdv-scroll-area">
 
             <!-- BUSCA -->
             <div class="p-3 border-bottom bg-white sticky-top">
@@ -207,15 +230,30 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 1000);
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'F2') document.getElementById('finalizarVenda').click();
-    if (e.key === 'F3') document.getElementById('buscaProduto').focus();
-    if (e.key === 'F4') document.getElementById('limparCarrinho').click();
+    if (e.key === 'F2') {
+      const btn = document.getElementById('finalizarVenda');
+      if (btn) btn.click();
+    }
+    if (e.key === 'F3') {
+      const input = document.getElementById('buscaProduto');
+      if (input) input.focus();
+    }
+    if (e.key === 'F4') {
+      const btn = document.getElementById('limparCarrinho');
+      if (btn) btn.click();
+    }
   });
 
-  document.getElementById('verHistorico').addEventListener('click', () => {
-    const offcanvas = new bootstrap.Offcanvas('#painelHistorico');
-    offcanvas.show();
-  });
+  const verHistoricoBtn = document.getElementById('verHistorico');
+  if (verHistoricoBtn) {
+    verHistoricoBtn.addEventListener('click', () => {
+      const offcanvasEl = document.getElementById('painelHistorico');
+      if (offcanvasEl) {
+        const offcanvas = new bootstrap.Offcanvas(offcanvasEl);
+        offcanvas.show();
+      }
+    });
+  }
 });
 </script>
 
