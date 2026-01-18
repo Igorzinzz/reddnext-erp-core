@@ -3,43 +3,39 @@
 echo "🚀 Reddnext ERP - Gerador de Versão"
 echo "----------------------------------"
 
-# Verifica se está dentro do repositório correto
-if [ ! -d ".git" ]; then
-  echo "❌ Erro: este script deve ser executado dentro do erp-core"
+# Verifica se há merge ou rebase pendente
+if [ -f .git/MERGE_HEAD ] || [ -d .git/rebase-apply ] || [ -d .git/rebase-merge ]; then
+  echo "❌ Existe um merge ou rebase pendente. Resolva antes de versionar."
   exit 1
 fi
 
-# Verifica se há alterações
-if git diff --quiet && git diff --cached --quiet; then
-  echo "⚠️ Nenhuma alteração detectada. Nada para versionar."
+# Verifica se há alterações não commitadas
+if ! git diff-index --quiet HEAD --; then
+  echo "❌ Existem alterações não commitadas."
+  git status --short
   exit 1
 fi
 
-# Pergunta a versão
-read -p "Digite a versão (ex: v2.8): " VERSAO
+# Lê versão atual
+VERSION_FILE="versao.txt"
 
-if [ -z "$VERSAO" ]; then
-  echo "❌ Versão inválida."
-  exit 1
+if [ ! -f "$VERSION_FILE" ]; then
+  echo "1.0" > $VERSION_FILE
 fi
 
-# Verifica se a tag já existe
-if git tag | grep -q "^$VERSAO$"; then
-  echo "❌ A tag $VERSAO já existe."
-  exit 1
-fi
+VERSION=$(cat $VERSION_FILE)
+MAJOR=$(echo $VERSION | cut -d. -f1)
+MINOR=$(echo $VERSION | cut -d. -f2)
 
-# Commit
-git add .
-git commit -m "Release $VERSAO"
+NEW_VERSION="$MAJOR.$((MINOR + 1))"
 
-# Tag
-git tag $VERSAO
+echo $NEW_VERSION > $VERSION_FILE
 
-# Push
+git add $VERSION_FILE
+git commit -m "Release v$NEW_VERSION"
+git tag "v$NEW_VERSION"
+
 git push origin main
-git push origin $VERSAO
+git push origin "v$NEW_VERSION"
 
-echo ""
-echo "✅ Versão $VERSAO enviada com sucesso!"
-echo "🌐 Deploy disponível via deploy.php"
+echo "✅ Versão v$NEW_VERSION publicada com sucesso"
